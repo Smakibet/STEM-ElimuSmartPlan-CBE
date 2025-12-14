@@ -1,0 +1,5 @@
+{
+  "name": "STEM ElimuSmartPlan Master",
+  "description": "An AI-driven platform for Kenyan Competency-Based Education (CBE) in STEM. Features AI lesson generation, interactive whiteboards, and virtual labs.",
+  "requestFramePermissions": []
+}
