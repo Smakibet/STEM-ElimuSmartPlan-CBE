@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ViewState, UserRole } from '../scripts/types';
+import { ViewState, UserRole } from '../types';
 
 interface NavigationProps {
   currentView: ViewState;
@@ -55,7 +55,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
   return (
     <>
       {/* Mobile Hamburger Button */}
-      <button
+      <button 
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-slate-900 text-white rounded-lg shadow-lg hover:bg-slate-800 transition-colors"
       >
@@ -68,7 +68,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
 
       {/* Overlay for mobile */}
       {isMobileMenuOpen && (
-        <div
+        <div 
           className="md:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -87,16 +87,17 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
           </h1>
           <p className="text-xs text-slate-400 mt-1">CBE STEM Master</p>
         </div>
-
+        
         <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
           {getNavItems().map((item: any) => (
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center px-6 py-3 transition-colors duration-200 ${currentView === item.id
+              className={`w-full flex items-center px-6 py-3 transition-colors duration-200 ${
+                currentView === item.id
                   ? 'bg-emerald-600/20 text-emerald-400 border-r-4 border-emerald-400'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                }`}
+              }`}
             >
               <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
@@ -116,7 +117,7 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
               <p className="text-xs text-slate-500 capitalize">{userRole}</p>
             </div>
           </div>
-          <button
+          <button 
             onClick={onLogout}
             className="w-full py-2 text-xs text-red-400 hover:text-red-300 border border-red-900/50 hover:bg-red-900/20 rounded-lg transition-colors flex items-center justify-center"
           >

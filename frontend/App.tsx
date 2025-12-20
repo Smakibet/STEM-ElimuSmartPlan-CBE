@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from './components/Navigation';
 import LessonGenerator from './components/LessonGenerator';
@@ -10,8 +9,8 @@ import AttendanceTracker from './components/AttendanceTracker';
 import SupervisorDashboard from './components/SupervisorDashboard';
 import CollaborationHub from './components/CollaborationHub';
 import AppraisalSystem from './components/AppraisalSystem';
-import { ViewState, LessonPlan, User, UserRole } from './scripts/types';
-
+import StudentTracker from './components/StudentTracker';
+import { ViewState, LessonPlan, User, UserRole } from '../types';
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -74,7 +73,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (selectedLesson && currentView === 'saved-lessons') {
       return (
-        <div className="p-8 bg-white h-full overflow-y-auto rounded-xl shadow-sm border border-slate-200">
+        <div className="p-4 md:p-8 bg-white h-full overflow-y-auto rounded-xl shadow-sm border border-slate-200">
           <button
             onClick={() => setSelectedLesson(null)}
             className="mb-4 text-emerald-600 font-medium hover:underline flex items-center"
@@ -147,7 +146,7 @@ const App: React.FC = () => {
     switch (currentView) {
       case 'dashboard':
         return (
-          <div className="p-8">
+          <div className="p-4 md:p-8">
             <h1 className="text-3xl font-bold text-emerald-700 mb-2">Karibu, {user?.name}</h1>
             <p className="text-slate-600 mb-8">Access the tools from the sidebar to manage your CBE workflow.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -165,12 +164,12 @@ const App: React.FC = () => {
                 <h3 className="font-bold text-lg mb-1">Whiteboard</h3>
                 <p className="text-sm text-slate-500">Interactive teaching aid with shapes and download.</p>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => setCurrentView('collaboration')}>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => setCurrentView('student-tracker')}>
+                <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center text-teal-600 mb-4">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 </div>
-                <h3 className="font-bold text-lg mb-1">Collaboration</h3>
-                <p className="text-sm text-slate-500">Shared resources and co-teaching schedules.</p>
+                <h3 className="font-bold text-lg mb-1">Student Progress</h3>
+                <p className="text-sm text-slate-500">Track skill mastery and individual growth.</p>
               </div>
             </div>
           </div>
@@ -185,6 +184,7 @@ const App: React.FC = () => {
           ? <SupervisorDashboard />
           : user ? <AppraisalSystem user={user} mode="teacher" /> : null;
       case 'collaboration': return <CollaborationHub savedLessons={savedLessons} user={user} />;
+      case 'student-tracker': return user ? <StudentTracker user={user} /> : null;
       default: return <div>Not Found</div>;
     }
   };
@@ -200,9 +200,9 @@ const App: React.FC = () => {
         userName={user?.name || ''}
         onLogout={handleLogout}
       />
-      <main className="ml-64 flex-1 p-8 h-screen overflow-hidden flex flex-col relative">
+      <main className="md:ml-64 flex-1 p-4 md:p-8 h-screen overflow-hidden flex flex-col relative transition-all duration-300">
         {!isOnline && (
-          <div className="bg-amber-500 text-white text-xs font-bold text-center py-1 absolute top-0 left-0 right-0 z-50 shadow-md">
+          <div className="bg-amber-500 text-white text-xs font-bold text-center py-1 absolute top-0 left-0 right-0 z-20 shadow-md">
             Offline Mode Active - Saved lessons available
           </div>
         )}

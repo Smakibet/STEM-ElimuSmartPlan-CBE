@@ -1,558 +1,234 @@
-
-import { useState, useEffect } from 'react';
-import { User, Student, SkillMetric, ClassInsights } from '../types';
+import { User, Student, ClassInsights, AppraisalSession, Quiz, QuizQuestion, QuizResult } from '../../types';
 
 /**
- * Graph Processing Service Client
- * Connects to the Jaseci graph service for advanced learning analytics
- * REFACTORED: Fully simulates Jaseci Object-Spatial Programming (OSP) Graph logic locally
+ * Jac Client Service - OSP Graph Orchestrator
  */
-
-export interface ModuleAnalysisRequest {
-    content: string;
-    targetAudience?: string;
-    analysisType?: string;
-}
-
-export interface LearningPathRequest {
-    studentProfile: {
-        studentId?: string;
-        name?: string;
-        currentLevel?: string;
-        interests?: string[];
-    };
-    targetSubject: string;
-    durationWeeks?: number;
-}
-
-export interface SkillAssessmentRequest {
-    studentId: string;
-    completedModules: string[];
-}
-
-export interface GraphServiceResponse<T = any> {
-    status: 'success' | 'partial' | 'simulated' | 'error';
-    data?: T;
-    message?: string;
-    metadata?: Record<string, any>;
-}
 
 interface JacContext {
   [key: string]: any;
 }
 
-// --- MOCK GRAPH DATABASE (OSP SIMULATION) ---
-interface GraphNode {
-    id: string;
-    type: string;
-    context: any;
-}
-
-interface GraphEdge {
-    sourceId: string;
-    targetId: string;
-    type: string;
-    context: any;
-}
-
-const getGraphDB = () => {
-    const stored = localStorage.getItem('mock_jac_graph_db');
-    return stored ? JSON.parse(stored) : { nodes: [], edges: [] };
-};
-
-const saveGraphDB = (db: any) => {
-    localStorage.setItem('mock_jac_graph_db', JSON.stringify(db));
-};
-
-const spawnNode = (type: string, context: any) => {
-    const db = getGraphDB();
-    const newNode: GraphNode = {
-        id: `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        type,
-        context
-    };
-    db.nodes.push(newNode);
-    saveGraphDB(db);
-    return newNode;
-};
-
-const spawnEdge = (sourceId: string, targetId: string, type: string, context: any = {}) => {
-    const db = getGraphDB();
-    const newEdge: GraphEdge = { sourceId, targetId, type, context };
-    db.edges.push(newEdge);
-    saveGraphDB(db);
-    return newEdge;
-};
-
-// Initial Seed Data for Appraisal (Legacy Mock)
-const DEFAULT_SESSION = {
-  id: "session_mock_1",
-  teacherId: "user-1",
-  term: "Term 1",
-  year: 2024,
-  status: "Draft",
-  standards: [
-    { id: 1, name: "Professional Knowledge", description: "Demonstrates mastery of subject content.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
-    { id: 2, name: "Lesson Planning", description: "Prepares comprehensive lesson plans.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
-    { id: 3, name: "Assessment", description: "Uses valid assessment methods.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
-    { id: 4, name: "Professionalism", description: "Upholds ethical standards.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
-    { id: 5, name: "Time Management", description: "Manages class time effectively.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 }
-  ],
-  attendanceScore: 88,
-  learnerProgressRecords: [],
-  tpdPlan: [
-      { id: "tpd-1", gap: "ICT Integration", recommendedAction: "Digital Literacy Course", status: "Pending" }
-  ],
-  supervisorComments: "Good progress so far."
-};
-
-// Initial Seed Data for Students
-const MOCK_STUDENTS: Student[] = [
-    {
-        id: "STU001",
-        name: "Kevin Mwangi",
-        grade: "Grade 7",
-        admissionNumber: "ADM-2023-045",
-        attendanceRate: 92,
-        overallPerformance: 78,
-        skills: [
-            { id: "sk1", name: "Critical Thinking", score: 75, trend: "up", lastUpdated: "2024-03-10" },
-            { id: "sk2", name: "Digital Literacy", score: 85, trend: "stable", lastUpdated: "2024-03-12" },
-            { id: "sk3", name: "Communication", score: 65, trend: "up", lastUpdated: "2024-03-08" },
-            { id: "sk4", name: "Collaboration", score: 80, trend: "down", lastUpdated: "2024-03-11" }
-        ],
-        recentActivity: [
-            { 
-                id: "act1", lessonId: "L001", lessonTopic: "Photosynthesis Virtual Lab", date: "2024-03-12", 
-                type: "Lab", performance: "Meeting", skillsAddressed: ["Critical Thinking"], 
-                durationMinutes: 45, interactionData: { experimentsCompleted: 2, toolsUsed: ["Microscope", "Light Source"] } 
-            },
-            { 
-                id: "act2", lessonId: "L002", lessonTopic: "Basic Python Syntax", date: "2024-03-10", 
-                type: "Quiz", performance: "Exceeding", skillsAddressed: ["Digital Literacy"],
-                durationMinutes: 20, score: 92
-            }
-        ],
-        learningGaps: ["Public Speaking", "Algebraic Expressions"]
-    },
-    {
-        id: "STU002",
-        name: "Amina Juma",
-        grade: "Grade 7",
-        admissionNumber: "ADM-2023-048",
-        attendanceRate: 98,
-        overallPerformance: 88,
-        skills: [
-            { id: "sk1", name: "Critical Thinking", score: 88, trend: "up", lastUpdated: "2024-03-10" },
-            { id: "sk2", name: "Digital Literacy", score: 70, trend: "down", lastUpdated: "2024-03-12" },
-            { id: "sk3", name: "Communication", score: 90, trend: "stable", lastUpdated: "2024-03-08" },
-            { id: "sk4", name: "Collaboration", score: 95, trend: "up", lastUpdated: "2024-03-11" }
-        ],
-        recentActivity: [
-            { 
-                id: "act3", lessonId: "L001", lessonTopic: "Ecosystems Project", date: "2024-03-12", 
-                type: "Project", performance: "Exceeding", skillsAddressed: ["Critical Thinking", "Collaboration"],
-                durationMinutes: 120, score: 95
-            },
-            { 
-                id: "act4", lessonId: "L005", lessonTopic: "Intro to spreadsheets", date: "2024-03-11", 
-                type: "Lesson", performance: "Approaching", skillsAddressed: ["Digital Literacy"],
-                durationMinutes: 15
-            }
-        ],
-        learningGaps: ["Spreadsheet software", "Algebraic Expressions"]
-    },
-    {
-        id: "STU003",
-        name: "Brian Otieno",
-        grade: "Grade 7",
-        admissionNumber: "ADM-2023-055",
-        attendanceRate: 85,
-        overallPerformance: 62,
-        skills: [
-            { id: "sk1", name: "Critical Thinking", score: 55, trend: "stable", lastUpdated: "2024-03-10" },
-            { id: "sk2", name: "Digital Literacy", score: 60, trend: "up", lastUpdated: "2024-03-12" },
-            { id: "sk3", name: "Communication", score: 58, trend: "down", lastUpdated: "2024-03-08" },
-            { id: "sk4", name: "Collaboration", score: 68, trend: "down", lastUpdated: "2024-03-11" }
-        ],
-        recentActivity: [
-             { 
-                id: "act5", lessonId: "L003", lessonTopic: "Variables in Math", date: "2024-03-12", 
-                type: "Quiz", performance: "Below", skillsAddressed: ["Critical Thinking"],
-                durationMinutes: 10, score: 45, interactionData: { attempts: 2 }
-            }
-        ],
-        learningGaps: ["Reading comprehension", "Scientific method", "Algebraic Expressions"]
-    }
+// Initial Institutional State for simulation
+const INITIAL_STAFF = [
+  { id: '1', name: "Jane Doe", email: "jane@school.edu.ke", role: 'teacher' as const, tscNumber: "TSC-10023", department: "Science", planned: 45, taught: 42, rating: 4.8, appraisalScore: 88, status: "Promotable", gaps: 0 },
+  { id: '2', name: "John Smith", email: "john@school.edu.ke", role: 'teacher' as const, tscNumber: "TSC-29910", department: "Mathematics", planned: 50, taught: 40, rating: 4.2, appraisalScore: 72, status: "Good Standing", gaps: 2 },
+  { id: '3', name: "Sarah Connor", email: "sarah@school.edu.ke", role: 'teacher' as const, tscNumber: "TSC-44002", department: "Computer Sci", planned: 30, taught: 30, rating: 5.0, appraisalScore: 95, status: "Promotable", gaps: 0 },
 ];
 
-const getStoredSession = () => {
-  const stored = localStorage.getItem('mock_jac_session');
-  return stored ? JSON.parse(stored) : DEFAULT_SESSION;
-};
-
-const saveStoredSession = (session: any) => {
-  localStorage.setItem('mock_jac_session', JSON.stringify(session));
-};
-
-const getStoredStudents = (): Student[] => {
-    const stored = localStorage.getItem('mock_jac_students');
-    return stored ? JSON.parse(stored) : MOCK_STUDENTS;
-}
-
-const saveStoredStudents = (students: Student[]) => {
-    localStorage.setItem('mock_jac_students', JSON.stringify(students));
-}
-
-// --- JAC CLIENT WALKER SIMULATION ---
+const INITIAL_STANDARDS = [
+  { id: 1, name: "Professional Knowledge", description: "Demonstrates mastery of subject content.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
+  { id: 2, name: "Lesson Planning", description: "Prepares comprehensive lesson plans.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
+  { id: 3, name: "Assessment", description: "Uses valid assessment methods.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
+  { id: 4, name: "Professionalism", description: "Upholds ethical standards.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 },
+  { id: 5, name: "Time Management", description: "Manages class time effectively.", selfRating: 0, evidence: [], gapsIdentified: "", supervisorRating: 0 }
+];
 
 export const JacClient = {
-  spawnWalker: async (walkerName: string, context: JacContext, user: User) => {
-    // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 600));
+  /**
+   * Spawns a walker on the OSP graph to perform reasoning or data retrieval.
+   */
+  spawnWalker: async (walkerName: string, context: JacContext, user?: User) => {
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // Lazy init of institutional data
+    if (!localStorage.getItem('inst_staff_nodes')) {
+      localStorage.setItem('inst_staff_nodes', JSON.stringify(INITIAL_STAFF));
+    }
+    if (!localStorage.getItem('inst_student_registry')) {
+      localStorage.setItem('inst_student_registry', JSON.stringify([]));
+    }
+    if (!localStorage.getItem('inst_appraisal_nodes')) {
+      localStorage.setItem('inst_appraisal_nodes', JSON.stringify({}));
+    }
+
+    const getStaff = () => JSON.parse(localStorage.getItem('inst_staff_nodes') || '[]');
+    const saveStaff = (data: any) => localStorage.setItem('inst_staff_nodes', JSON.stringify(data));
+    const getStudents = () => JSON.parse(localStorage.getItem('inst_student_registry') || '[]');
+    const saveStudents = (data: any) => localStorage.setItem('inst_student_registry', JSON.stringify(data));
+    const getAppraisals = () => JSON.parse(localStorage.getItem('inst_appraisal_nodes') || '{}');
+    const saveAppraisals = (data: any) => localStorage.setItem('inst_appraisal_nodes', JSON.stringify(data));
 
     try {
-      console.log(`[JacClient] Spawning Walker: ${walkerName}`, context);
-      const currentSession = getStoredSession();
-      const students = getStoredStudents();
-
       switch (walkerName) {
-        case 'init_appraisal':
-          return currentSession;
+        case 'auth_user': {
+          const { email, password } = context;
+          const staff = getStaff();
+          const found = staff.find((u: any) => u.email === email);
+          if (found) return found;
+          throw new Error("Identity node not found in registry.");
+        }
+
+        case 'register_user': {
+          const { name, email, role, tscNumber } = context;
+          const staff = getStaff();
+          if (staff.find((u: any) => u.email === email)) throw new Error("Email already exists.");
+          const newUser = {
+            id: crypto.randomUUID(),
+            name, email, role, tscNumber,
+            department: "General",
+            planned: 0, taught: 0, rating: 0, appraisalScore: 0, status: "New Entry", gaps: 0
+          };
+          staff.push(newUser);
+          saveStaff(staff);
+          return newUser;
+        }
+
+        case 'get_staff_list':
+          return getStaff();
+
+        case 'get_all_users':
+          return getStaff();
+
+        case 'manage_user': {
+          const { action, userId, userData } = context;
+          let staff = getStaff();
+          if (action === 'create') {
+            const newUser = { id: crypto.randomUUID(), ...userData, planned: 0, taught: 0, rating: 0, appraisalScore: 0, status: "Active", gaps: 0 };
+            staff.push(newUser);
+          } else if (action === 'delete') {
+            staff = staff.filter((u: any) => u.id !== userId);
+          }
+          saveStaff(staff);
+          return staff;
+        }
+
+        case 'get_all_students':
+          return getStudents();
+
+        case 'manage_student': {
+          const { action, studentId, studentData } = context;
+          let students = getStudents();
+          if (action === 'add') {
+            const newStudent: Student = {
+              id: crypto.randomUUID(),
+              ...studentData,
+              attendanceRate: 100,
+              overallPerformance: 0,
+              completionRate: 0,
+              skills: [
+                { id: 's1', name: 'Critical Thinking', score: 50, trend: 'stable', lastUpdated: new Date().toISOString() },
+                { id: 's2', name: 'Digital Literacy', score: 50, trend: 'stable', lastUpdated: new Date().toISOString() }
+              ],
+              recentActivity: [],
+              learningGaps: []
+            };
+            students.push(newStudent);
+          } else if (action === 'delete') {
+            students = students.filter((s: any) => s.id !== studentId);
+          }
+          saveStudents(students);
+          return students;
+        }
+
+        case 'init_appraisal': {
+          const userId = user?.id;
+          if (!userId) return null;
+          const appraisals = getAppraisals();
+          if (!appraisals[userId]) {
+            appraisals[userId] = {
+              id: `appr_${userId}_2024`,
+              teacherId: userId,
+              term: 'Term 1',
+              year: 2024,
+              status: 'Draft',
+              standards: INITIAL_STANDARDS,
+              attendanceScore: 85,
+              learnerProgressRecords: [],
+              tpdPlan: [],
+              classDeliverables: { lessonsPlanned: 40, lessonsTaught: 38, avgClassMastery: 72, syllabusCoverage: 90 }
+            };
+            saveAppraisals(appraisals);
+          }
+          return appraisals[userId];
+        }
 
         case 'update_standard': {
-           const updatedStandards = currentSession.standards.map((s: any) => 
-               s.id === context.standardId ? { 
-                 ...s, 
-                 selfRating: context.rating, 
-                 evidence: context.evidence,
-                 gapsIdentified: context.gaps
-               } : s
-           );
-           
-           let updatedTPD = [...currentSession.tpdPlan];
-           if (context.rating > 0 && context.rating < 3 && context.gaps) {
-              const exists = updatedTPD.find((t: any) => t.gap === context.gaps);
-              if (!exists) {
-                 updatedTPD.push({
-                   id: `tpd-${Date.now()}`,
-                   gap: context.gaps,
-                   recommendedAction: "Peer Mentorship & Coaching",
-                   status: "Pending"
-                 });
-              }
-           }
-
-           const updatedSession = { ...currentSession, standards: updatedStandards, tpdPlan: updatedTPD };
-           saveStoredSession(updatedSession);
-           return updatedSession;
-        }
-
-        case 'manage_tpd': {
-          let updatedTPD = [...currentSession.tpdPlan];
-          if (context.action === 'add') {
-             updatedTPD.push({ id: `tpd-${Date.now()}`, gap: context.gap, recommendedAction: context.recommendedAction, status: 'Pending' });
-          } else if (context.action === 'update_status') {
-             updatedTPD = updatedTPD.map((t: any) => t.id === context.tpdId ? { ...t, status: context.status } : t);
-          } else if (context.action === 'delete') {
-             updatedTPD = updatedTPD.filter((t: any) => t.id !== context.tpdId);
+          const { sessionId, standardId, rating, gaps, evidence } = context;
+          const appraisals = getAppraisals();
+          const teacherId = Object.keys(appraisals).find(k => appraisals[k].id === sessionId);
+          if (teacherId) {
+            appraisals[teacherId].standards = appraisals[teacherId].standards.map((s: any) =>
+              s.id === standardId ? { ...s, selfRating: rating, gapsIdentified: gaps, evidence: evidence ? [evidence] : s.evidence } : s
+            );
+            saveAppraisals(appraisals);
+            return appraisals[teacherId];
           }
-          const updatedSession = { ...currentSession, tpdPlan: updatedTPD };
-          saveStoredSession(updatedSession);
-          return updatedSession;
-        }
-
-        case 'submit_appraisal': {
-          const updatedSession = { ...currentSession, status: 'Submitted' };
-          saveStoredSession(updatedSession);
-          return updatedSession;
+          return null;
         }
 
         case 'supervisor_review': {
-          let updatedStandards = [...currentSession.standards];
-          if (context.reviews && Array.isArray(context.reviews)) {
-              context.reviews.forEach((rev: any) => {
-                  updatedStandards = updatedStandards.map(s => s.id === rev.standardId ? { ...s, supervisorRating: rev.rating } : s);
+          const { sessionId, comments, reviews } = context;
+          const appraisals = getAppraisals();
+          const teacherId = Object.keys(appraisals).find(k => appraisals[k].id === sessionId);
+          if (teacherId) {
+            const app = appraisals[teacherId];
+            app.supervisorComments = comments;
+            if (reviews && Array.isArray(reviews)) {
+              reviews.forEach((r: any) => {
+                app.standards = app.standards.map((s: any) =>
+                  s.id === r.standardId ? { ...s, supervisorRating: r.rating } : s
+                );
               });
+            }
+            app.status = 'Reviewed';
+            saveAppraisals(appraisals);
+
+            const staff = getStaff();
+            const idx = staff.findIndex((s: any) => s.id === teacherId);
+            if (idx !== -1) {
+              const avg = app.standards.reduce((acc: number, s: any) => acc + (s.supervisorRating || s.selfRating || 0), 0) / 5;
+              staff[idx].appraisalScore = Math.round((avg / 5) * 100);
+              staff[idx].status = staff[idx].appraisalScore >= 80 ? "Promotable" : "Good Standing";
+              saveStaff(staff);
+            }
+            return app;
           }
-          const updatedSession = { 
-              ...currentSession, 
-              standards: updatedStandards,
-              supervisorComments: context.comments || currentSession.supervisorComments,
-              status: 'Reviewed' 
-          };
-          saveStoredSession(updatedSession);
-          return updatedSession;
+          return null;
         }
 
-        // --- Student Progress Walkers ---
-        case 'get_all_students': {
-            return students;
+        case 'record_observation': {
+          const { teacherId, notes, type } = context;
+          const observations = JSON.parse(localStorage.getItem('inst_observations') || '[]');
+          const newObs = { id: Date.now(), teacherId, notes, type, date: new Date().toLocaleDateString(), observer: user?.name };
+          observations.push(newObs);
+          localStorage.setItem('inst_observations', JSON.stringify(observations));
+          return observations.filter((o: any) => o.teacherId === teacherId);
         }
 
         case 'get_class_insights': {
-            const totalStudents = students.length;
-            
-            // 1. Analyze Common Gaps
-            const gapCounts: Record<string, number> = {};
-            students.forEach(s => {
-                s.learningGaps.forEach(gap => {
-                    gapCounts[gap] = (gapCounts[gap] || 0) + 1;
-                });
-            });
-            
-            const commonGaps = Object.entries(gapCounts)
-                .map(([gap, count]) => ({ gap, count, percentage: Math.round((count / totalStudents) * 100) }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 3); // Top 3
-
-            // 2. Analyze Declining Skills
-            const decliningStats: Record<string, string[]> = {};
-            students.forEach(s => {
-                s.skills.filter(sk => sk.trend === 'down').forEach(sk => {
-                    if (!decliningStats[sk.name]) decliningStats[sk.name] = [];
-                    decliningStats[sk.name].push(s.name);
-                });
-            });
-
-            const decliningSkills = Object.entries(decliningStats)
-                .map(([skill, studentNames]) => ({ 
-                    skill, 
-                    studentCount: studentNames.length, 
-                    students: studentNames 
-                }))
-                .filter(d => d.studentCount > 0)
-                .sort((a, b) => b.studentCount - a.studentCount);
-
-            // 3. Generate Interventions
-            const interventions = [];
-            if (commonGaps.length > 0) {
-                interventions.push(`Schedule a remedial session focusing on "${commonGaps[0].gap}" which affects ${commonGaps[0].percentage}% of the class.`);
-            }
-            if (decliningSkills.length > 0) {
-                interventions.push(`Review teaching methods for "${decliningSkills[0].skill}" as ${decliningSkills[0].studentCount} students show declining proficiency.`);
-            }
-            interventions.push("Encourage peer-to-peer learning groups mixing high and low performers.");
-
-            const insights: ClassInsights = {
-                commonGaps,
-                decliningSkills,
-                recommendedInterventions: interventions
-            };
-            return insights;
+          const students = getStudents();
+          const commonGaps = [{ gap: "Digital Literacy", count: 2, percentage: 40 }];
+          const decliningSkills = [{ skill: "Algebra", studentCount: 1, students: ["Demo"] }];
+          return { commonGaps, decliningSkills, recommendedInterventions: ["Focus on Practical STEM"] };
         }
 
-        case 'record_student_progress': {
-            // Context: { studentId, lessonId, lessonTopic, skills: [{name, score}], type, duration, score, interactionData }
-            const { studentId, lessonId, lessonTopic, skills, type, duration, score, interactionData } = context;
-            
-            const updatedStudents = students.map(stu => {
-                if (stu.id !== studentId) return stu;
-
-                // Update Skills
-                const newSkills = stu.skills.map(skill => {
-                    const update = skills.find((s: any) => s.name === skill.name);
-                    if (update) {
-                        return {
-                            ...skill,
-                            score: Math.round((skill.score + update.score) / 2), // Simple averaging for mock
-                            trend: (update.score > skill.score ? 'up' : 'down') as 'up' | 'down' | 'stable',
-                            lastUpdated: new Date().toISOString()
-                        };
-                    }
-                    return skill;
-                });
-
-                // Add Activity with extended logs
-                const newActivity = {
-                    id: `act_${Date.now()}`,
-                    lessonId,
-                    lessonTopic,
-                    date: new Date().toISOString().split('T')[0],
-                    type: type || 'Lesson',
-                    durationMinutes: duration || 30,
-                    score: score || undefined,
-                    interactionData: interactionData || undefined,
-                    performance: 'Meeting' as 'Exceeding' | 'Meeting' | 'Approaching' | 'Below', // Simplified calculation logic
-                    skillsAddressed: skills.map((s: any) => s.name)
-                };
-
-                return {
-                    ...stu,
-                    skills: newSkills,
-                    recentActivity: [newActivity, ...stu.recentActivity],
-                    overallPerformance: Math.round(newSkills.reduce((a, b) => a + b.score, 0) / newSkills.length)
-                };
-            });
-
-            saveStoredStudents(updatedStudents);
-            return updatedStudents.find(s => s.id === studentId);
+        case 'generate_quiz': {
+          const { topic } = context;
+          return {
+            id: `quiz_${Date.now()}`,
+            topic: topic || "General STEM",
+            questions: [
+              { id: "q1", type: 'multiple_choice', question: `Primary competency in ${topic || 'STEM'}?`, options: ["Critical Thinking", "Memorization"], correctAnswer: 0, explanation: "CBE priority." }
+            ]
+          };
         }
 
         default:
-          return currentSession;
+          return {};
       }
     } catch (error) {
-      console.error("Jac Client Error:", error);
+      console.error("Jac Walker Error:", error);
       throw error;
     }
   }
 };
 
-// --- GRAPH SERVICE (Using OSP Simulation) ---
-
-class GraphService {
-    async checkHealth(): Promise<GraphServiceResponse> {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return {
-            status: 'simulated',
-            data: { status: 'operational', version: 'mock-osp-2.0' },
-            metadata: { operational: true, graph_nodes: getGraphDB().nodes.length }
-        };
-    }
-
-    async analyzeModule(request: ModuleAnalysisRequest): Promise<GraphServiceResponse> {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Mock AI analysis result
-        const mockAnalysis = {
-            analysis: {
-                key_learning_objectives: [
-                    "Understand fundamental principles relative to the strand",
-                    "Apply core competencies in practical scenarios",
-                    "Demonstrate critical thinking through inquiry"
-                ],
-                prerequisite_knowledge: [
-                    "Basic literacy and numeracy",
-                    "Prior grade level competency"
-                ],
-                real_world_applications: [
-                    "Community problem solving",
-                    "Industry standard practices",
-                    "Daily life integration"
-                ]
-            }
-        };
-
-        return {
-            status: 'simulated',
-            data: mockAnalysis,
-            metadata: { confidence: 0.95 }
-        };
-    }
-
-    // Simulates: walker generate_learning_path
-    async generateLearningPath(request: LearningPathRequest): Promise<GraphServiceResponse> {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { targetSubject, studentProfile } = request;
-        
-        // 1. Spawn Student Node in Graph
-        const studentNode = spawnNode('student', {
-            name: studentProfile.name,
-            level: studentProfile.currentLevel
-        });
-
-        // 2. Spawn Module Nodes (Simulating graph traversal creation)
-        const modules = [
-            { title: `${targetSubject} Fundamentals`, type: 'Theory', duration: 8, desc: "Core concepts and definitions" },
-            { title: `Applied ${targetSubject}`, type: 'Practical', duration: 12, desc: "Hands-on experiments" },
-            { title: `${targetSubject} Capstone Project`, type: 'Project', duration: 16, desc: "Integration of concepts" }
-        ];
-
-        const pathNodes = [];
-        let prevNode = null;
-
-        for (const m of modules) {
-            const modNode = spawnNode('learning_module', { ...m, subject: targetSubject });
-            
-            // Create Edges
-            if (!prevNode) {
-                spawnEdge(studentNode.id, modNode.id, 'enrolled_in', { date: new Date().toISOString() });
-            } else {
-                spawnEdge(prevNode.id, modNode.id, 'teaches', { effectiveness: 1.0 });
-            }
-            
-            pathNodes.push({
-                moduleId: modNode.id,
-                title: m.title,
-                module_type: m.type,
-                duration_hours: m.duration,
-                description: m.desc
-            });
-            prevNode = modNode;
-        }
-
-        return {
-            status: 'simulated',
-            data: {
-                studentId: studentNode.id,
-                path: pathNodes,
-                totalDuration: '36 hours'
-            },
-            message: 'Generated OSP Learning Path',
-            metadata: { graph_operations: { nodes_created: modules.length + 1, edges_created: modules.length } }
-        };
-    }
-
-    // Simulates: walker assess_skills
-    async assessSkills(request: SkillAssessmentRequest): Promise<GraphServiceResponse> {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Simulate skill nodes
-        const skills = [
-            { name: "Critical Thinking", score: 0.85, category: "Cognitive" },
-            { name: "Digital Literacy", score: 0.72, category: "Technical" },
-            { name: "Collaboration", score: 0.90, category: "Social" }
-        ];
-
-        // "Spawn" skill nodes if not exist (simulation)
-        skills.forEach(s => spawnNode('skill', s));
-
-        return {
-            status: 'simulated',
-            data: { 
-                overall_proficiency: 0.82,
-                level: 'Proficient',
-                strong_areas: skills.filter(s => s.score > 0.8).map(s => s.name),
-                improvement_areas: skills.filter(s => s.score < 0.8).map(s => s.name),
-                recommendations: [
-                    "Continue with advanced practical modules",
-                    "Focus on Digital Literacy exercises"
-                ]
-            },
-            metadata: { timestamp: new Date().toISOString() }
-        };
-    }
-}
-
-export const graphService = new GraphService();
-
 export const useGraphService = () => {
-    const [serviceStatus, setServiceStatus] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-        checkService();
-    }, []);
-
-    const checkService = async () => {
-        setIsLoading(true);
-        try {
-            const status = await graphService.checkHealth();
-            setServiceStatus(status);
-        } catch (error) {
-            setServiceStatus({ status: 'error', message: 'Service check failed' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return {
-        serviceStatus,
-        isLoading,
-        checkService,
-        analyzeModule: graphService.analyzeModule.bind(graphService),
-        generateLearningPath: graphService.generateLearningPath.bind(graphService),
-        assessSkills: graphService.assessSkills.bind(graphService)
-    };
+  return {
+    serviceStatus: { status: 'simulated', version: 'byLLM-v2' },
+    analyzeModule: async (params: any) => {
+      await new Promise(r => setTimeout(r, 1200));
+      return { status: 'simulated', data: { analysis: { key_learning_objectives: ["CBE strand goals"], prerequisite_knowledge: ["Literacy"] } } };
+    }
+  };
 };

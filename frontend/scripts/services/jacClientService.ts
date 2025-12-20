@@ -1,157 +1,70 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+import axios from "axios";
 
-interface SpawnRequest {
-    walker: string;
-    data: any;
-}
-
-interface SpawnResponse {
-    success: boolean;
-    data?: any;
-    error?: string;
-}
+// Environment-aware backend URL for Jac Service
+const BASE_URL = process.env.VITE_BACKEND_URL || "http://localhost:8000";
 
 /**
- * Generic spawn function to call Jac walkers
+ * Jac Client Interface
+ * Standardizes communication with the Jac multi-agent backend.
+ * Uses the 'spawnWalker' logic where each request triggers a graph traversal.
  */
-async function spawn(request: SpawnRequest): Promise<any> {
-    try {
-        const response = await fetch(`${BACKEND_URL}/walker/${request.walker}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(request.data),
-        });
-
-        const result: SpawnResponse = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || 'Walker execution failed');
+export const JacClientService = {
+    /**
+     * Spawns a walker to generate lesson nodes.
+     * Maps to: walker planner, generator, and analyzer sequentially.
+     */
+    spawnGenerationWalker: async (context: {
+        grade: string;
+        subject: string;
+        strand: string;
+        sub_strand: string;
+        duration: string;
+        lesson_type: string;
+        school_level: string;
+    }) => {
+        try {
+            const response = await axios.post(`${BASE_URL}/walker/generate_lesson`, context);
+            return response.data;
+        } catch (error: any) {
+            console.error("Jac Client: Walker spawning failed", error);
+            throw error;
         }
+    },
 
-        return result.data;
-    } catch (error) {
-        console.error(`Error spawning walker ${request.walker}:`, error);
-        throw error;
-    }
-}
-
-/**
- * Generate STEM CBC Lesson using Jac Client
- 
- */
-export const generateCBELesson = async (
-    grade: string,
-    subject: string,
-    strand: string,
-    subStrand: string,
-    duration: string,
-    lessonType: string,
-    additionalContext: string,
-    resources: string,
-    schoolLevel: 'Junior' | 'Senior'
-): Promise<any> => {
-    try {
-        const result = await spawn({
-            walker: 'generate_lesson',
-            data: {
-                grade,
-                subject,
-                strand,
-                sub_strand: subStrand,
-                duration,
-                lesson_type: lessonType,
-                school_level: schoolLevel,
-                additional_context: additionalContext,
-                resources,
-            },
-        });
-
-        // Agent 1 (Planner) → Agent 2 (Generator) → Agent 3 (Analyzer)
-        return result;
-    } catch (error) {
-        console.error('Error generating lesson via Jac Client:', error);
-        throw error;
-    }
-};
-
-
-//Track Student Progress using OSP Graph
-export const trackStudentProgress = async (studentId: string): Promise<any> => {
-    try {
-        const result = await spawn({
-            walker: 'track_progress',
-            data: {
+    /**
+     * Spawns a walker to track learner progress on the OSP graph.
+     */
+    spawnTrackerWalker: async (studentId: string, activityData: any) => {
+        try {
+            const response = await axios.post(`${BASE_URL}/walker/track_student`, {
                 student_id: studentId,
-            },
-        });
+                ...activityData
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error("Jac Client: Tracking traversal failed", error);
+            throw error;
+        }
+    },
 
-        return result;
-    } catch (error) {
-        console.error('Error tracking progress:', error);
-        throw error;
+    /**
+     * Virtual Lab Assistant interaction node.
+     */
+    spawnLabWalker: async (query: string) => {
+        try {
+            const response = await axios.post(`${BASE_URL}/walker/lab_assistant`, { query });
+            return response.data;
+        } catch (error: any) {
+            console.error("Jac Client: Lab node reached but logic failed", error);
+            throw error;
+        }
     }
 };
 
-/**
- * Get Lesson using OSP Graph
- * graph-based reasoning
- */
-export const recommendLessons = async (
-    studentId: string,
-    subject: string
-): Promise<any> => {
-    try {
-        const result = await spawn({
-            walker: 'recommend_lessons',
-            data: {
-                student_id: studentId,
-                subject,
-            },
-        });
-
-        return result;
-    } catch (error) {
-        console.error('Error getting recommendations:', error);
-        throw error;
-    }
-};
-
-
-//Virtual Lab Assistant using byLLM
-export const generateLabExperiment = async (
-    query: string
-): Promise<{ text: string }> => {
-    try {
-        const result = await spawn({
-            walker: 'lab_assistant',
-            data: {
-                query,
-            },
-        });
-
-        return { text: result.text || result };
-    } catch (error) {
-        console.error('Error in lab assistant:', error);
-        return { text: 'Error connecting to the lab assistant.' };
-    }
-};
-/**
- * Generate Lab Image 
- * Returns null for now
- */
-export const generateLabImage = async (
-    prompt: string
-): Promise<string | null> => {
-    console.log('generateLabImage called with:', prompt);
-    // Image generation not implemented in current backend
-    return null;
-};
-// Export for backward compatibility
-export default {
-    generateCBELesson,
-    trackStudentProgress,
-    recommendLessons,
-    generateLabExperiment,
+// Compatibility export
+export const generateCBELesson = async (lessonContext: any) => {
+    return JacClientService.spawnGenerationWalker({
+        ...lessonContext,
+        additional_context: "Focus on Competency-Based Education (CBE) principles."
+    });
 };

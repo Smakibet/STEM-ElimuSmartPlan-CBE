@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { generateCBELesson } from '../scripts/services/jacClientService';
-import { useGraphService } from '../scripts/services/jacService';
-import { LessonPlan } from '../scripts/types';
+import { generateCBELesson } from '../services/geminiService';
+import { useGraphService } from '../services/jacService';
+import { LessonPlan } from '../types';
 
 interface LessonGeneratorProps {
   onSave: (lesson: LessonPlan) => void;
@@ -137,7 +137,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
 
     } catch (error) {
       console.error(error);
-      alert("Failed to generate lesson. Please try again.");
+      alert("Failed to Generate Standardized Lesson. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -191,14 +191,14 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-xl font-semibold text-slate-800">Lesson Creator</h2>
-            <p className="text-sm text-slate-500">AI-powered CBE compliant planner</p>
+            <h2 className="text-xl font-semibold text-slate-800">Standardized Lesson Creator</h2>
+            <p className="text-sm text-slate-500">AI-powered CBE STEM compliant planner</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex bg-slate-100 p-1 rounded-lg">
               <button
                 onClick={() => setSchoolLevel('Junior')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${schoolLevel === 'Junior'
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${schoolLevel === 'Junior School'
                   ? 'bg-white text-emerald-600 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -207,7 +207,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
               </button>
               <button
                 onClick={() => setSchoolLevel('Senior')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${schoolLevel === 'Senior'
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${schoolLevel === 'Senior School'
                   ? 'bg-white text-emerald-600 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -226,7 +226,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
                   }`}></div>
                 Graph: {
                   serviceStatus.status === 'success' ? 'Online' :
-                    serviceStatus.status === 'simulated' ? 'OSP Sim' :
+                    serviceStatus.status === 'simulated' ? 'OSP Simulation' :
                       'Offline'
                 }
               </div>
@@ -302,7 +302,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Available Resources</label>
             <textarea
               rows={2}
-              placeholder="e.g., Projector, Tablets, Manilla paper,Lab Chemicals Available..."
+              placeholder="e.g., Projector, Tablets, Manilla paper..."
               value={formData.resources}
               onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
               className="w-full rounded-lg border-slate-300 border p-2 text-sm outline-none"
@@ -323,7 +323,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Designing Standardized Lesson Plan...
+                Generating Standardized lesson Plan...
               </span>
             ) : (
               'Generate Lesson Plan'

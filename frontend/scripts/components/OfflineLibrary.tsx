@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LessonPlan } from '../types';
+import { LessonPlan } from '../../types';
 
 interface OfflineLibraryProps {
   lessons: LessonPlan[];
@@ -9,6 +9,18 @@ interface OfflineLibraryProps {
 }
 
 const OfflineLibrary: React.FC<OfflineLibraryProps> = ({ lessons, onView, onDelete }) => {
+  const handleDownload = (lesson: LessonPlan, e: React.MouseEvent) => {
+    e.stopPropagation();
+    let content = `LESSON PLAN: ${lesson.topic}\nSubject: ${lesson.subject}\n\n`;
+    lesson.sections.forEach(s => content += `[${s.title}]\n${s.content}\n\n`);
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${lesson.topic}.txt`;
+    link.click();
+  };
+
   return (
     <div className="h-full bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-y-auto">
       <div className="mb-6 flex justify-between items-center">
@@ -30,7 +42,7 @@ const OfflineLibrary: React.FC<OfflineLibraryProps> = ({ lessons, onView, onDele
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {lessons.map((lesson) => (
-            <div key={lesson.id} className="border border-slate-200 rounded-xl p-5 hover:shadow-lg transition-all group bg-white">
+            <div key={lesson.id} className="border border-slate-200 rounded-xl p-5 hover:shadow-lg transition-all group bg-white cursor-pointer" onClick={() => onView(lesson)}>
               <div className="flex justify-between items-start mb-2">
                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded uppercase tracking-wide">{lesson.subject}</span>
                 <span className="text-xs text-slate-400">{new Date(lesson.generatedAt).toLocaleDateString()}</span>
@@ -40,16 +52,17 @@ const OfflineLibrary: React.FC<OfflineLibraryProps> = ({ lessons, onView, onDele
                 <p className="text-xs text-slate-500 italic mb-2">Strand: {lesson.subStrand}</p>
               )}
               <p className="text-sm text-slate-500 mb-4">{lesson.grade} • {lesson.duration}</p>
-              
+
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-100">
-                <button 
-                  onClick={() => onView(lesson)}
-                  className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
+                <button
+                  onClick={(e) => handleDownload(lesson, e)}
+                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center bg-slate-100 px-2 py-1 rounded"
                 >
-                  View Plan &rarr;
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  Download
                 </button>
-                <button 
-                  onClick={() => onDelete(lesson.id)}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(lesson.id); }}
                   className="text-slate-400 hover:text-red-500 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

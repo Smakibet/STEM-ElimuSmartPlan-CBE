@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { generateLabExperiment, generateLabImage } from '../scripts/services/jacClientService';
-import { ChatMessage } from '../scripts/types';
+import { generateLabExperiment, generateLabImage } from '../services/geminiService';
+import { ChatMessage } from '../types';
 
 const VirtualLab: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -27,16 +27,16 @@ const VirtualLab: React.FC = () => {
 
     // 1. Get Text Explanation
     const textResponse = await generateLabExperiment(userMsg.text);
-
+    
     // 2. Try to get an Image if it seems visual
     let imageUrl = null;
     const visualKeywords = ['show', 'diagram', 'draw', 'setup', 'visualize', 'look like', 'structure'];
     if (visualKeywords.some(k => userMsg.text.toLowerCase().includes(k))) {
-      imageUrl = await generateLabImage(userMsg.text);
+       imageUrl = await generateLabImage(userMsg.text);
     }
 
-    const modelMsg: ChatMessage = {
-      role: 'model',
+    const modelMsg: ChatMessage = { 
+      role: 'model', 
       text: textResponse.text,
       image: imageUrl || undefined
     };
@@ -64,10 +64,11 @@ const VirtualLab: React.FC = () => {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${msg.role === 'user'
-              ? 'bg-indigo-600 text-white rounded-tr-none'
-              : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-              }`}>
+            <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${
+              msg.role === 'user' 
+                ? 'bg-indigo-600 text-white rounded-tr-none' 
+                : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+            }`}>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.text}</p>
               {msg.image && (
                 <div className="mt-3 rounded-lg overflow-hidden border border-slate-100">

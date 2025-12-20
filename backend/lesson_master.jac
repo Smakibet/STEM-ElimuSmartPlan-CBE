@@ -73,7 +73,7 @@ walker content_generator_agent {
     
     can generate with Lesson entry {
         # byLLM GENERATIVE USE - Content Creation
-        prompt = f"""Create a comprehensive Kenyan Competency-Based Curriculum (CBC/CBE) lesson plan.
+        prompt = f"""Create a comprehensive Kenyan Competency-Based Curriculum (CBE) lesson plan.
 
 Level: {self.school_level} School
 Grade: {self.grade}
@@ -100,7 +100,7 @@ Generate a detailed lesson plan with:
 Return as valid JSON with keys: topic, keyInquiryQuestions, coreCompetencies, values, materials, sections (array of objects with title, duration, content, teacherActivity, studentActivity)""";
         
         generated_content: dict by llm(
-            model="gemini-1.5-pro",
+            model="gemini-2.0-flash",
             prompt=prompt,
             temperature=0.7,
             response_format={"type": "json_object"}
@@ -150,7 +150,7 @@ Provide scores (0.0 to 1.0) for:
 Return as JSON with keys: difficulty_score, cbc_compliance, engagement_level, picrat_level, recommendations""";
         
         quality_analysis: dict by llm(
-            model="gemini-1.5-pro",
+            model="gemini-2.0-flash",
             prompt=analysis_prompt,
             temperature=0.3,
             response_format={"type": "json_object"}
@@ -238,7 +238,7 @@ walker generate_lesson {
                 "generatedAt": lesson.generated_at
             };
         else:
-            report {"error": "Lesson generation failed"};
+            report {"error": "Standardized Lesson Generation Failed"};
     }
 }
 
@@ -347,7 +347,7 @@ walker recommend_lessons {
 
 # ============================================
 # VIRTUAL LAB ASSISTANT
-# Conversational AI for science experiments
+# Conversational AI for Science Experiments
 # ============================================
 
 walker lab_assistant {
@@ -355,7 +355,7 @@ walker lab_assistant {
     
     can assist with LessonGraphRoot entry {
         response_text: str by llm(
-            model="gemini-1.5-pro",
+            model="gemini-2.0-flash",
             prompt=f"""You are a friendly Virtual Lab Assistant for Kenyan students. 
             
 Student Query: {self.query}

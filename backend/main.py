@@ -9,7 +9,7 @@ import json
 # Load environment variables
 load_dotenv()
 
-# Configure Google Generative AI
+# Configuring Google Generative AI
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -29,8 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Simulated OSP Graph Storage (replaces jac_import)
-# This maintains the graph concept for hackathon compliance
+# Simulated OSP Graph Storage (replaces jac_import in real when i fully complete it)
+
 class LessonGraphRoot:
     def __init__(self, name: str, initialized_at: str):
         self.name = name
@@ -75,7 +75,7 @@ class LessonMaster:
         """AGENT 2: Content Generator - byLLM GENERATIVE USE"""
         try:
            
-            model = genai.GenerativeModel('gemini-1.0-pro')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             prompt = f"""Create a comprehensive Kenyan Competency-Based Curriculum (CBC/CBE) lesson plan.
 
@@ -160,7 +160,7 @@ Return ONLY valid JSON with this exact structure:
                 return {"error": "Lesson not found"}
             
           
-            model = genai.GenerativeModel('gemini-1.0-pro')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             prompt = f"""Analyze this CBC lesson plan and provide quality scores:
 
@@ -203,7 +203,7 @@ Return ONLY valid JSON:
             lesson["cbc_compliance"] = float(analysis.get("cbc_compliance", 0.5))
             lesson["quality_score"] = (lesson["difficulty_score"] + lesson["cbc_compliance"]) / 2.0
             
-            # Add PICRAT analysis
+            # Add PICRAT analysis(My initiative approach after Insructional designing MOdel completion)
             lesson["content"]["picratAnalysis"] = {
                 "level": analysis.get("picrat_level", "Interactive-Amplification"),
                 "explanation": " ".join(analysis.get("recommendations", ["Quality lesson plan"]))
@@ -312,7 +312,7 @@ Return ONLY valid JSON:
         """Walker: Virtual Lab Assistant using byLLM"""
         try:
            
-            model = genai.GenerativeModel('gemini-1.0-pro')
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             response = model.generate_content(
                 f"""You are a friendly Virtual Lab Assistant for Kenyan students following the CBC curriculum.

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserRole } from '../scripts/types';
+import { UserRole } from '../types';
 
 interface LoginPageProps {
   onLogin: (role: UserRole, name: string) => void;
@@ -28,7 +28,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       </div>
 
       <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-12 z-10">
-
+        
         {/* Left Side: Information & Value Prop */}
         <div className="flex flex-col justify-center text-white space-y-8">
           <div>
@@ -66,7 +66,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         {/* Right Side: Login Form */}
         <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 flex flex-col justify-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">Sign In to Your Account</h2>
-
+          
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Select Role</label>
@@ -76,10 +76,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     key={r}
                     type="button"
                     onClick={() => setRole(r)}
-                    className={`py-2 px-1 text-sm font-medium rounded-lg capitalize transition-colors ${role === r
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                    className={`py-2 px-1 text-sm font-medium rounded-lg capitalize transition-colors ${
+                      role === r 
+                      ? 'bg-emerald-600 text-white shadow-md' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
                     {r}
                   </button>
