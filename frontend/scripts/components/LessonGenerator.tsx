@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { generateCBELesson } from '../services/geminiService';
-import { useGraphService } from '../services/jacService';
+import { generateCBELesson } from '../../services/geminiService';
+import { useGraphService } from '../../services/jacService';
 import { LessonPlan } from '../../types';
 
 interface LessonGeneratorProps {
@@ -74,7 +74,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
       setActiveAgent(null);
     } catch (error) {
       console.error(error);
-      alert("Jac Client Orchestration failed. Check agent connectivity.");
+      alert("STEM Standardized Lesson Plan failed. Check agent connectivity.");
     } finally {
       setLoading(false);
     }
@@ -117,8 +117,8 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
       <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 h-fit space-y-8">
         <div className="border-b border-slate-50 pb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Jac Orchestrator</h2>
-            <p className="text-sm text-slate-400 font-medium">Standardized Kenyan CBC Pipeline</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Standardized Lesson Creator</h2>
+            <p className="text-sm text-slate-400 font-medium">AI-Powered CBE STEM Compliant Planner</p>
           </div>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
             {['Junior', 'Senior'].map(lvl => (
@@ -205,7 +205,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
 
         {loading && (
           <div className="pt-6 space-y-4 animate-fade-in">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-4">Jac Agent Pipeline</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-4">ElimuSmartPlan</p>
             {agents.map(agent => (
               <div key={agent.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${activeAgent === agent.id ? 'bg-indigo-50 border-indigo-200 translate-x-2' : 'bg-slate-50 border-slate-100 opacity-40 grayscale'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${activeAgent === agent.id ? 'bg-indigo-600 text-white animate-pulse shadow-lg shadow-indigo-200' : 'bg-slate-200 text-slate-400'}`}>{agent.id}</div>

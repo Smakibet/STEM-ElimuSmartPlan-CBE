@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { JacClient } from '../services/jacService';
-import { generatePedagogicalStrategy } from '../services/geminiService';
+import { JacClient } from '../../services/jacService';
+import { generatePedagogicalStrategy } from '../../services/geminiService';
 import { Student, User, ClassInsights } from '../../types';
 
 interface StudentTrackerProps {
@@ -97,7 +97,7 @@ const StudentTracker: React.FC<StudentTrackerProps> = ({ user }) => {
                 <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               </div>
               <div>
-                <h3 className="text-3xl font-black text-white tracking-tight uppercase">Intelligence Command Center</h3>
+                <h3 className="text-3xl font-black text-white tracking-tight lowercase">Intelligence Command Center</h3>
                 <p className="text-indigo-200/60 font-bold uppercase text-[10px] tracking-[0.3em] mt-1">Powered by Jaseci OSP Graph & Gemini GenAI</p>
               </div>
             </div>
@@ -172,7 +172,7 @@ const StudentTracker: React.FC<StudentTrackerProps> = ({ user }) => {
                   <div className="bg-emerald-500 p-2.5 rounded-2xl text-white shadow-2xl shadow-emerald-500/40">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                   </div>
-                  <h4 className="text-2xl font-black text-emerald-400 tracking-tighter uppercase">Gemini Reasoning Node</h4>
+                  <h4 className="text-2xl font-black text-emerald-400 tracking-tighter lowercase">Gemini Reasoning Node</h4>
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -308,7 +308,7 @@ const StudentTracker: React.FC<StudentTrackerProps> = ({ user }) => {
         <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex flex-col min-h-[400px] flex-grow">
           <div className="p-10 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-8 flex-shrink-0">
             <div>
-              <h3 className="font-black text-2xl text-slate-900 uppercase tracking-tighter">Performance Index</h3>
+              <h3 className="font-black text-2xl text-slate-900 lowercase tracking-tighter">Performance Index</h3>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Real-time Learner Analytics</p>
             </div>
             <div className="relative w-full sm:w-96">
@@ -357,7 +357,7 @@ const StudentTracker: React.FC<StudentTrackerProps> = ({ user }) => {
                         onClick={() => setSelectedStudent(student)}
                         className="bg-white border border-slate-200 hover:border-slate-900 text-slate-400 hover:text-slate-900 font-black uppercase text-[9px] tracking-widest py-3 px-8 rounded-2xl transition-all shadow-sm active:scale-95"
                       >
-                        View Node
+                        View
                       </button>
                     </td>
                   </tr>

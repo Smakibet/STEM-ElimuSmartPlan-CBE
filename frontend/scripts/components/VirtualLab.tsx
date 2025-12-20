@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { generateLabExperiment, generateLabImage } from '../services/geminiService';
+import { generateLabExperiment, generateLabImage } from '../../services/geminiService';
 import { ChatMessage } from '../../types';
 
 const VirtualLab: React.FC = () => {
@@ -46,7 +46,7 @@ const VirtualLab: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-3xl font-black uppercase tracking-tighter">STEM Virtual Lab</h2>
-            <p className="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">Institutional Experiment Node</p>
+            <p className="text-xs text-slate-400 font-bold tracking-widest uppercase mt-1">Institutional Experiment Practical</p>
           </div>
           <div className="flex bg-white/10 p-1.5 rounded-2xl backdrop-blur-md">
             <button
@@ -71,8 +71,8 @@ const VirtualLab: React.FC = () => {
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-[32px] p-6 shadow-sm ${msg.role === 'user'
-                    ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-600/20'
-                    : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
+                  ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-600/20'
+                  : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
                   }`}>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed font-medium">{msg.text}</p>
                   {msg.image && (

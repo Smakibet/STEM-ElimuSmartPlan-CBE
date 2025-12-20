@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { JacClient } from '../services/jacService';
+import { JacClient } from '../../services/jacService';
 import { Quiz, QuizQuestion, LessonPlan, QuizResult } from '../../types';
 
 interface QuizSystemProps {
@@ -171,8 +171,8 @@ const QuizSystem: React.FC<QuizSystemProps> = ({ lessons }) => {
                     disabled={feedback !== null}
                     onClick={() => setUserAnswer(String(i))}
                     className={`w-full text-left p-6 rounded-[24px] border-2 transition-all font-bold text-sm ${userAnswer === String(i)
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-xl shadow-indigo-100'
-                        : 'border-slate-100 hover:border-slate-300 text-slate-600'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 shadow-xl shadow-indigo-100'
+                      : 'border-slate-100 hover:border-slate-300 text-slate-600'
                       }`}
                   >
                     <span className="inline-block w-8 h-8 rounded-lg bg-white border border-slate-100 mr-4 text-center leading-8 text-[10px] uppercase font-black">{String.fromCharCode(65 + i)}</span>

@@ -1,14 +1,14 @@
 export interface LessonPlan {
   id: string;
-  topic: string; // derived from Sub-strand
-  strand?: string;
-  subStrand?: string;
+  topic: string; // The specific lesson title or sub-strand derived title
+  strand?: string; // Added for CBE structure
+  subStrand?: string; // Added for CBE structure
   subject: string;
   grade: string;
   schoolLevel?: 'Junior' | 'Senior';
-  lessonType?: 'Single' | 'Double';
   duration: string;
-  keyInquiryQuestions: string[];
+  lessonType?: string;
+  keyInquiryQuestions?: string[];
   coreCompetencies: string[];
   values: string[];
   materials: string[];
@@ -24,35 +24,8 @@ export interface LessonPlan {
     explanation: string;
   };
   generatedAt: string;
-  author?: string;
+  author?: string; // For collaboration
   shared?: boolean;
-}
-
-export interface QuizQuestion {
-  id: string;
-  type: 'multiple_choice' | 'code_challenge' | 'short_answer';
-  question: string;
-  options?: string[];
-  correctAnswer: string | number;
-  explanation: string;
-  initialCode?: string; // For code challenges
-}
-
-export interface Quiz {
-  id: string;
-  topic: string;
-  lessonId?: string;
-  questions: QuizQuestion[];
-}
-
-export interface QuizResult {
-  id: string;
-  quizId: string;
-  studentId: string;
-  score: number;
-  total: number;
-  date: string;
-  feedback: string;
 }
 
 export interface ChatMessage {
@@ -70,7 +43,7 @@ export interface User {
   role: UserRole;
   school?: string;
   department?: string;
-  tscNumber?: string;
+  tscNumber?: string; // Added for TPAD
 }
 
 export interface AttendanceRecord {
@@ -82,74 +55,68 @@ export interface AttendanceRecord {
   duration?: string;
 }
 
-export type ViewState = 
-  | 'dashboard' 
-  | 'lesson-planner' 
-  | 'whiteboard' 
-  | 'virtual-lab' 
+export type ViewState =
+  | 'dashboard'
+  | 'lesson-planner'
+  | 'whiteboard'
+  | 'virtual-lab'
   | 'saved-lessons'
   | 'collaboration'
   | 'attendance'
   | 'appraisal'
   | 'admin-panel'
-  | 'student-tracker'
-  | 'quiz-master';
+  | 'student-tracker'; // Added for Student Progress Feature
 
 export enum DrawingTool {
   PEN = 'PEN',
   ERASER = 'ERASER',
 }
 
+// Appraisal / TPAD Types
 export interface TeachingStandard {
   id: number;
   name: string;
   description: string;
-  selfRating: number;
+  selfRating: number; // 1-5
   supervisorRating?: number;
-  evidence?: string[];
+  evidence?: string[]; // URLs or file names
   gapsIdentified?: string;
 }
 
 export interface TPDIntervention {
   id: string;
   gap: string;
-  recommendedAction: string;
+  recommendedAction: string; // Course, Workshop, Peer Teaching
   status: 'Pending' | 'In Progress' | 'Completed';
 }
 
 export interface AppraisalSession {
   id: string;
   teacherId: string;
-  teacherName?: string;
   term: string;
   year: number;
   status: 'Draft' | 'Submitted' | 'Reviewed' | 'Completed';
   standards: TeachingStandard[];
-  attendanceScore: number;
+  attendanceScore: number; // Calculated from Attendance records
   learnerProgressRecords: string[];
   supervisorComments?: string;
   tpdPlan: TPDIntervention[];
-  classDeliverables?: {
-    lessonsPlanned: number;
-    lessonsTaught: number;
-    avgClassMastery: number;
-    syllabusCoverage: number;
-  };
 }
 
+// Collaboration Types
 export interface CoTeachingSession {
   id: string;
   date: string;
-  time: string;
+  time: string; // Added time
   topic: string;
   partnerTeacher: string;
   strategy: 'Team Teaching' | 'Station Teaching' | 'One Teach, One Assist';
-  status: 'Planned' | 'Completed' | 'Pending';
+  status: 'Planned' | 'Completed' | 'Pending'; // Added Pending
 }
 
 export interface ResourceBooking {
   id: string;
-  resource: string;
+  resource: string; // e.g., 'Makerspace', 'Physics Lab'
   date: string;
   timeSlot: string;
   bookedBy: string;
@@ -160,9 +127,18 @@ export interface PeerObservation {
   observer: string;
   observee: string;
   date: string;
-  focusArea: string;
+  focusArea: string; // e.g., "Classroom Management", "CBE Integration"
   feedback?: string;
   status: 'Scheduled' | 'Completed';
+}
+
+// Student Tracking Types
+export interface SkillMetric {
+  id: string;
+  name: string; // e.g., "Critical Thinking", "Digital Literacy"
+  score: number; // 0-100
+  trend: 'up' | 'down' | 'stable';
+  lastUpdated: string;
 }
 
 export interface StudentActivity {
@@ -170,24 +146,19 @@ export interface StudentActivity {
   lessonId: string;
   lessonTopic: string;
   date: string;
+  // Added missing type property to fix StudentTracker component errors
   type: 'Lesson' | 'Quiz' | 'Lab' | 'Project';
-  status: 'Planned' | 'Completed';
   performance: 'Exceeding' | 'Meeting' | 'Approaching' | 'Below';
   skillsAddressed: string[];
-  durationMinutes?: number;
-  score?: number;
-  completionDate?: string;
 }
 
 export interface Student {
   id: string;
   name: string;
   grade: string;
-  subjects: string[]; 
   admissionNumber: string;
   attendanceRate: number;
   overallPerformance: number;
-  completionRate: number;
   skills: SkillMetric[];
   recentActivity: StudentActivity[];
   learningGaps: string[];
@@ -197,12 +168,4 @@ export interface ClassInsights {
   commonGaps: { gap: string; count: number; percentage: number }[];
   decliningSkills: { skill: string; studentCount: number; students: string[] }[];
   recommendedInterventions: string[];
-}
-
-export interface SkillMetric {
-  id: string;
-  name: string;
-  score: number;
-  trend: 'up' | 'down' | 'stable';
-  lastUpdated: string;
 }

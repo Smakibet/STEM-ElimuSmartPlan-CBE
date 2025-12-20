@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import AppraisalSystem from './AppraisalSystem';
-import { JacClient } from '../services/jacService';
+import { JacClient } from '../../services/jacService';
 import { User } from '../../types';
 
 const SupervisorDashboard: React.FC = () => {
@@ -102,7 +102,7 @@ const SupervisorDashboard: React.FC = () => {
             <div className="h-full flex flex-col min-h-0">
                 <button onClick={() => { setSelectedTeacherId(null); loadStaff(); }} className="mb-4 text-emerald-600 font-black uppercase text-[10px] tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform w-fit bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
                     <svg className="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    Back to Node List
+                    Back to Analyzer List
                 </button>
                 <div className="flex-1 overflow-hidden">
                     <AppraisalSystem user={targetUser} mode="supervisor" />
@@ -115,7 +115,7 @@ const SupervisorDashboard: React.FC = () => {
         <div className="h-full flex flex-col space-y-8 overflow-y-auto pb-10 px-2 custom-scrollbar">
             <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col lg:flex-row justify-between items-center gap-6 shrink-0">
                 <div>
-                    <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Supervisory Command</h2>
+                    <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">Teacher Monitoring Hub</h2>
                     <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1 italic">Real-time Merit & Compliance Tracking</p>
                 </div>
                 <div className="flex gap-4">
@@ -149,16 +149,16 @@ const SupervisorDashboard: React.FC = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50/50 text-slate-400 uppercase text-[9px] font-black tracking-widest">
                                 <tr>
-                                    <th className="px-10 py-6">Staff identity node</th>
+                                    <th className="px-10 py-6">Staff Identity</th>
                                     <th className="px-10 py-6">Department</th>
-                                    <th className="px-10 py-6 text-center">Appraisal score</th>
+                                    <th className="px-10 py-6 text-center">Appraisal Score</th>
                                     <th className="px-10 py-6">Status</th>
                                     <th className="px-10 py-6 text-right">Traversal</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {loading ? (
-                                    <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">Accessing Graph Registry...</td></tr>
+                                    <tr><td colSpan={5} className="p-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">Accessing Graph Registry Analysis...</td></tr>
                                 ) : filteredTeachers.map(t => (
                                     <tr key={t.id} className="hover:bg-slate-50/50 transition-all group">
                                         <td className="px-10 py-6">
@@ -178,7 +178,7 @@ const SupervisorDashboard: React.FC = () => {
                                             <span className={`px-4 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border ${t.status === 'Promotable' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{t.status}</span>
                                         </td>
                                         <td className="px-10 py-6 text-right">
-                                            <button onClick={() => setSelectedTeacherId(t.id)} className="bg-white border border-slate-200 hover:border-indigo-600 text-slate-400 hover:text-indigo-600 font-black uppercase text-[9px] tracking-widest py-3 px-8 rounded-2xl transition-all shadow-sm">Review Appr.</button>
+                                            <button onClick={() => setSelectedTeacherId(t.id)} className="bg-white border border-slate-200 hover:border-indigo-600 text-slate-400 hover:text-indigo-600 font-black uppercase text-[9px] tracking-widest py-3 px-8 rounded-2xl transition-all shadow-sm">Review Appraisal.</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -205,7 +205,7 @@ const SupervisorDashboard: React.FC = () => {
                                         <p className="text-sm text-slate-600 leading-relaxed italic line-clamp-4">"{obs.notes}"</p>
                                     </div>
                                     <div className="mt-6 pt-6 border-t border-slate-50 flex justify-end">
-                                        <button className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:underline">View Full Node &rarr;</button>
+                                        <button className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:underline">View Full &rarr;</button>
                                     </div>
                                 </div>
                             );
@@ -213,7 +213,7 @@ const SupervisorDashboard: React.FC = () => {
                         {allObservations.length === 0 && (
                             <div className="col-span-full py-20 text-center bg-white rounded-[40px] border border-slate-100">
                                 <svg className="w-16 h-16 text-slate-100 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                <p className="text-slate-300 font-black uppercase tracking-[0.2em] text-xs">No active interaction logs found in graph.</p>
+                                <p className="text-slate-300 font-black uppercase tracking-[0.2em] text-xs">No active interaction logs found in graph Analyzer.</p>
                             </div>
                         )}
                     </div>
@@ -274,7 +274,7 @@ const SupervisorDashboard: React.FC = () => {
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
                     <div className="bg-white rounded-[40px] w-full max-w-lg overflow-hidden shadow-2xl animate-scale-in">
                         <div className="p-10 bg-indigo-900 text-white">
-                            <h3 className="text-2xl font-black uppercase tracking-tighter">Record Interaction Node</h3>
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Record Interaction Interventions</h3>
                             <p className="text-indigo-300 text-xs font-bold uppercase tracking-widest mt-1">Classroom Observation Entry</p>
                         </div>
                         <form onSubmit={handleAddObservation} className="p-10 space-y-6">
@@ -290,7 +290,7 @@ const SupervisorDashboard: React.FC = () => {
                                 <select value={obsType} onChange={e => setObsType(e.target.value)} className="w-full border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none">
                                     <option>Regular Walkthrough</option>
                                     <option>Full Lesson Observation</option>
-                                    <option>CBC Resource Review</option>
+                                    <option>CBE Resource Review</option>
                                 </select>
                             </div>
                             <div>
@@ -299,7 +299,7 @@ const SupervisorDashboard: React.FC = () => {
                             </div>
                             <div className="flex gap-4">
                                 <button type="button" onClick={() => setShowObsForm(false)} className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors">Cancel</button>
-                                <button type="submit" className="flex-[2] bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-xl shadow-indigo-100 active:scale-95 transition-all">Commit to Graph</button>
+                                <button type="submit" className="flex-[2] bg-indigo-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] shadow-xl shadow-indigo-100 active:scale-95 transition-all">Commit to Graph Analyser</button>
                             </div>
                         </form>
                     </div>

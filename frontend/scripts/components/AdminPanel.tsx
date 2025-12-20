@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { JacClient } from '../services/jacService';
+import { JacClient } from '../../services/jacService';
 import { User, UserRole, Student } from '../../types';
 
 const AdminPanel: React.FC = () => {

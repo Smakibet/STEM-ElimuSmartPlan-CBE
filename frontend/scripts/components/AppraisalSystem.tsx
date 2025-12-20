@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, AppraisalSession } from '../../types';
-import { JacClient } from '../services/jacService';
+import { JacClient } from '../../services/jacService';
 
 interface AppraisalSystemProps {
   user: User;

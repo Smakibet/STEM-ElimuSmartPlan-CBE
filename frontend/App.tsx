@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import Navigation from './components/Navigation';
-import LessonGenerator from './components/LessonGenerator';
-import Whiteboard from './components/Whiteboard';
-import VirtualLab from './components/VirtualLab';
-import OfflineLibrary from './components/OfflineLibrary';
-import LoginPage from './components/LoginPage';
-import AttendanceTracker from './components/AttendanceTracker';
-import SupervisorDashboard from './components/SupervisorDashboard';
-import CollaborationHub from './components/CollaborationHub';
-import AppraisalSystem from './components/AppraisalSystem';
-import StudentTracker from './components/StudentTracker';
-import { ViewState, LessonPlan, User, UserRole } from '../types';
+import Navigation from './scripts/components/Navigation';
+import LessonGenerator from './scripts/components/LessonGenerator';
+import Whiteboard from './scripts/components/Whiteboard';
+import VirtualLab from './scripts/components/VirtualLab';
+import OfflineLibrary from './scripts/components/OfflineLibrary';
+import LoginPage from './scripts/components/LoginPage';
+import AttendanceTracker from './scripts/components/AttendanceTracker';
+import SupervisorDashboard from './scripts/components/SupervisorDashboard';
+import CollaborationHub from './scripts/components/CollaborationHub';
+import AppraisalSystem from './scripts/components/AppraisalSystem';
+import StudentTracker from './scripts/components/StudentTracker';
+import AdminPanel from './scripts/components/AdminPanel';
+import QuizSystem from './scripts/components/QuizSystem';
+import { ViewState, LessonPlan, User, UserRole } from './types';
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -37,14 +40,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = (role: UserRole, name: string) => {
+  const handleLogin = (role: UserRole, name: string, id: string, tscNumber?: string) => {
     const newUser: User = {
-      id: crypto.randomUUID(),
+      id,
       name,
       email: `${name.toLowerCase().replace(/\s/g, '.')}@school.edu.ke`,
       role,
-      tscNumber: 'TSC-' + Math.floor(10000 + Math.random() * 90000),
-      department: role === 'teacher' ? 'Science' : undefined
+      tscNumber,
+      department: role === 'teacher' || role === 'supervisor' ? 'Science' : undefined
     };
     setUser(newUser);
     setIsAuthenticated(true);
@@ -73,71 +76,36 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (selectedLesson && currentView === 'saved-lessons') {
       return (
-        <div className="p-4 md:p-8 bg-white h-full overflow-y-auto rounded-xl shadow-sm border border-slate-200">
-          <button
-            onClick={() => setSelectedLesson(null)}
-            className="mb-4 text-emerald-600 font-medium hover:underline flex items-center"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        <div className="p-12 bg-white h-full overflow-y-auto rounded-[40px] shadow-sm border border-slate-200">
+          <button onClick={() => setSelectedLesson(null)} className="mb-8 text-emerald-600 font-black uppercase text-[10px] tracking-widest hover:underline flex items-center gap-2">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Back to Library
           </button>
-          <h1 className="text-3xl font-bold mb-1 text-slate-800">{selectedLesson.topic}</h1>
-          <div className="text-sm text-slate-500 mb-6 flex gap-2">
-            <span className="bg-slate-100 px-2 py-0.5 rounded">{selectedLesson.subject}</span>
-            <span className="bg-slate-100 px-2 py-0.5 rounded">{selectedLesson.grade}</span>
-            <span className="bg-slate-100 px-2 py-0.5 rounded">{selectedLesson.duration}</span>
+          <h1 className="text-4xl font-black mb-2 text-slate-900 uppercase tracking-tighter">{selectedLesson.topic}</h1>
+          <div className="text-xs font-black text-slate-400 mb-10 flex gap-3 uppercase tracking-widest">
+            <span className="bg-slate-100 px-3 py-1 rounded-full">{selectedLesson.subject}</span>
+            <span className="bg-slate-100 px-3 py-1 rounded-full">{selectedLesson.grade}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div className="bg-slate-50 p-4 rounded-lg">
-              <h3 className="font-bold text-slate-700 mb-2">Core Competencies</h3>
-              <ul className="list-disc list-inside text-sm text-slate-600">
-                {selectedLesson.coreCompetencies.map((c, i) => <li key={i}>{c}</li>)}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+            <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-4">Competencies</h3>
+              <ul className="space-y-2">
+                {selectedLesson.coreCompetencies.map((c, i) => <li key={i} className="text-sm font-bold text-slate-700 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>{c}</li>)}
               </ul>
             </div>
-            <div className="bg-slate-50 p-4 rounded-lg">
-              <h3 className="font-bold text-slate-700 mb-2">Values</h3>
-              <ul className="list-disc list-inside text-sm text-slate-600">
-                {selectedLesson.values.map((v, i) => <li key={i}>{v}</li>)}
+            <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-4">Values</h3>
+              <ul className="space-y-2">
+                {selectedLesson.values.map((v, i) => <li key={i} className="text-sm font-bold text-slate-700 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>{v}</li>)}
               </ul>
             </div>
-            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
-              <h3 className="font-bold text-emerald-800 mb-2">Key Inquiry Questions</h3>
-              <ul className="list-disc list-inside text-sm text-emerald-700 italic">
-                {selectedLesson.keyInquiryQuestions && selectedLesson.keyInquiryQuestions.map((q, i) => <li key={i}>{q}</li>)}
+            <div className="bg-emerald-50 p-8 rounded-[32px] border border-emerald-100">
+              <h3 className="font-black text-[10px] text-emerald-600 uppercase tracking-widest mb-4">Inquiry Questions</h3>
+              <ul className="space-y-2 italic">
+                {selectedLesson.keyInquiryQuestions && selectedLesson.keyInquiryQuestions.map((q, i) => <li key={i} className="text-sm font-bold text-emerald-800 leading-tight">"{q}"</li>)}
               </ul>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-slate-800">Lesson Procedure</h2>
-            {selectedLesson.sections.map((section, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-lg border border-slate-200 hover:shadow-sm transition-shadow">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold text-emerald-700">{section.title}</h3>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">{section.duration}</span>
-                </div>
-                <p className="text-slate-700 mb-3 text-sm leading-relaxed">{section.content}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded">
-                  <div>
-                    <span className="font-bold text-slate-600 block text-xs uppercase mb-1">Teacher Activity</span>
-                    <p className="text-slate-600">{section.teacherActivity}</p>
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-600 block text-xs uppercase mb-1">Student Activity</span>
-                    <p className="text-slate-600">{section.studentActivity}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-100">
-            <h3 className="font-bold text-blue-800 mb-2">PICRAT Analysis</h3>
-            <div className="flex items-center mb-2">
-              <span className="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded mr-2">{selectedLesson.picratAnalysis.level}</span>
-            </div>
-            <p className="text-sm text-blue-700">{selectedLesson.picratAnalysis.explanation}</p>
           </div>
         </div>
       );
@@ -146,30 +114,24 @@ const App: React.FC = () => {
     switch (currentView) {
       case 'dashboard':
         return (
-          <div className="p-4 md:p-8">
-            <h1 className="text-3xl font-bold text-emerald-700 mb-2">Karibu, {user?.name}</h1>
-            <p className="text-slate-600 mb-8">Access the tools from the sidebar to manage your CBE workflow.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => setCurrentView('lesson-planner')}>
-                <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                </div>
-                <h3 className="font-bold text-lg mb-1">Plan Lesson</h3>
-                <p className="text-sm text-slate-500">Create standardized CBE lesson plans powered by AI.</p>
+          <div className="p-10">
+            <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tighter uppercase">STEM MASTER</h1>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] mb-12">Karibu: {user?.name}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 cursor-pointer hover:border-emerald-500 transition-all group" onClick={() => setCurrentView('lesson-planner')}>
+                <div className="w-16 h-16 bg-emerald-100 rounded-[24px] flex items-center justify-center text-emerald-600 mb-8 transition-transform group-hover:scale-110 shadow-lg shadow-emerald-500/10"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>
+                <h3 className="font-black text-xl mb-1 uppercase tracking-tighter">Plan Lesson</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Multi-Agent Planner for Standardized Lesson</p>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => setCurrentView('whiteboard')}>
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </div>
-                <h3 className="font-bold text-lg mb-1">Whiteboard</h3>
-                <p className="text-sm text-slate-500">Interactive teaching aid with shapes and download.</p>
+              <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 cursor-pointer hover:border-indigo-500 transition-all group" onClick={() => setCurrentView('quiz-master')}>
+                <div className="w-16 h-16 bg-indigo-100 rounded-[24px] flex items-center justify-center text-indigo-600 mb-8 transition-transform group-hover:scale-110 shadow-lg shadow-indigo-500/10"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg></div>
+                <h3 className="font-black text-xl mb-1 uppercase tracking-tighter">Quiz Master</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">AI Assessment Engine</p>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors" onClick={() => setCurrentView('student-tracker')}>
-                <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center text-teal-600 mb-4">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                </div>
-                <h3 className="font-bold text-lg mb-1">Student Progress</h3>
-                <p className="text-sm text-slate-500">Track skill mastery and individual growth.</p>
+              <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 cursor-pointer hover:border-teal-500 transition-all group" onClick={() => setCurrentView('student-tracker')}>
+                <div className="w-16 h-16 bg-teal-100 rounded-[24px] flex items-center justify-center text-teal-600 mb-8 transition-transform group-hover:scale-110 shadow-lg shadow-teal-500/10"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg></div>
+                <h3 className="font-black text-xl mb-1 uppercase tracking-tighter">Learner Registry</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Skill Mastery Index</p>
               </div>
             </div>
           </div>
@@ -177,6 +139,7 @@ const App: React.FC = () => {
       case 'lesson-planner': return <LessonGenerator onSave={saveLesson} />;
       case 'whiteboard': return <Whiteboard />;
       case 'virtual-lab': return <VirtualLab />;
+      case 'quiz-master': return <QuizSystem lessons={savedLessons} />;
       case 'saved-lessons': return <OfflineLibrary lessons={savedLessons} onView={setSelectedLesson} onDelete={deleteLesson} />;
       case 'attendance': return user ? <AttendanceTracker user={user} /> : null;
       case 'appraisal':
@@ -185,6 +148,7 @@ const App: React.FC = () => {
           : user ? <AppraisalSystem user={user} mode="teacher" /> : null;
       case 'collaboration': return <CollaborationHub savedLessons={savedLessons} user={user} />;
       case 'student-tracker': return user ? <StudentTracker user={user} /> : null;
+      case 'admin-panel': return <AdminPanel />;
       default: return <div>Not Found</div>;
     }
   };
@@ -200,10 +164,10 @@ const App: React.FC = () => {
         userName={user?.name || ''}
         onLogout={handleLogout}
       />
-      <main className="md:ml-64 flex-1 p-4 md:p-8 h-screen overflow-hidden flex flex-col relative transition-all duration-300">
+      <main className="md:ml-72 flex-1 p-8 h-screen overflow-hidden flex flex-col relative transition-all duration-300">
         {!isOnline && (
-          <div className="bg-amber-500 text-white text-xs font-bold text-center py-1 absolute top-0 left-0 right-0 z-20 shadow-md">
-            Offline Mode Active - Saved lessons available
+          <div className="bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest text-center py-2 absolute top-0 left-0 right-0 z-50 shadow-md">
+            Offline Logic Active • Local Registry Synced
           </div>
         )}
         {renderContent()}
