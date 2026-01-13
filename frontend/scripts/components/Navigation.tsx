@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ViewState, UserRole } from '../../types';
 
@@ -80,72 +79,118 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
 
   return (
     <>
+      {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="md:hidden fixed top-6 left-6 z-50 p-3 bg-slate-900 text-white rounded-2xl shadow-xl hover:bg-slate-800 transition-colors"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 active:scale-95"
       >
         {isMobileMenuOpen ? (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
         ) : (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
         )}
       </button>
 
+      {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30"
+          className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-30 animate-fadeIn"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
+      {/* Navigation Sidebar */}
       <nav className={`
-        fixed left-0 top-0 h-screen flex flex-col bg-slate-900 text-slate-100 shadow-2xl z-40 w-72 
-        transition-transform duration-500 ease-in-out 
+        fixed left-0 top-0 h-screen flex flex-col 
+        bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
+        text-white shadow-2xl z-40 w-80
+        transition-all duration-500 ease-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 border-r border-white/5
+        md:translate-x-0 
+        border-r border-white/10
+        before:absolute before:inset-0 before:bg-gradient-to-b before:from-blue-500/5 before:via-transparent before:to-purple-500/5 before:pointer-events-none
       `}>
-        <div className="p-8 border-b border-white/5 mt-10 md:mt-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+
+        {/* Logo Header */}
+        <div className="relative p-6 border-b border-white/10 mt-10 md:mt-0 bg-gradient-to-br from-slate-800/50 to-transparent">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/30 transform hover:rotate-6 transition-transform duration-300">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50"></div>
             </div>
             <div>
-              <h1 className="text-xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent uppercase tracking-tighter">ElimuSmartPlan</h1>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.3em] mt-0.5">Kenyan STEM Master</p>
+              <h1 className="text-2xl font-black bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent uppercase tracking-tight">
+                ElimuSmartPlan
+              </h1>
+              <p className="text-[10px] text-blue-300/80 font-bold uppercase tracking-[0.2em] mt-0.5">Kenyan STEM Master</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6 custom-scrollbar">
+        {/* Navigation Groups */}
+        <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
           {getNavGroups().map((group, gIdx) => (
-            <div key={gIdx} className="mb-6 px-6">
-              <h3 className="px-4 text-[9px] font-black text-slate-600 uppercase tracking-[0.25em] mb-2">{group.label}</h3>
-              <div className="space-y-1">
+            <div key={gIdx} className="mb-6">
+              <h3 className="px-4 mb-3 text-[10px] font-black text-blue-400/60 uppercase tracking-[0.2em] flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-blue-400/60"></div>
+                {group.label}
+              </h3>
+              <div className="space-y-1.5">
                 {group.items.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
                     className={`
-                      w-full flex items-center px-4 py-3 rounded-xl transition-all duration-300 group
+                      w-full flex items-center px-4 py-3.5 rounded-2xl 
+                      transition-all duration-300 group relative overflow-hidden
                       ${currentView === item.id
-                        ? 'bg-emerald-500/10 text-emerald-400 shadow-inner'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 scale-[1.02]'
+                        : 'text-slate-300 hover:text-white hover:bg-white/5'
                       }
                     `}
                   >
+                    {/* Animated Background for Active Item */}
+                    {currentView === item.id && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
+                    )}
+
+                    {/* Icon Container */}
                     <div className={`
-                      p-1.5 rounded-lg mr-3 transition-colors
-                      ${currentView === item.id ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}
+                      relative p-2 rounded-xl mr-3 transition-all duration-300
+                      ${currentView === item.id
+                        ? 'bg-white/20 text-white shadow-inner'
+                        : 'bg-slate-700/50 text-slate-400 group-hover:bg-slate-600/50 group-hover:text-blue-400'
+                      }
                     `}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={item.icon} />
                       </svg>
                     </div>
-                    <span className="font-bold text-[11px] uppercase tracking-widest">{item.label}</span>
+
+                    {/* Label */}
+                    <span className="relative font-bold text-xs uppercase tracking-wide">
+                      {item.label}
+                    </span>
+
+                    {/* Active Indicator */}
                     {currentView === item.id && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <div className="ml-auto flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse"></div>
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Hover Arrow */}
+                    {currentView !== item.id && (
+                      <svg className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                      </svg>
                     )}
                   </button>
                 ))}
@@ -154,30 +199,76 @@ const Navigation: React.FC<NavigationProps> = ({ currentView, onNavigate, userRo
           ))}
         </div>
 
-        <div className="p-8 border-t border-white/5 bg-black/20">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-800 flex items-center justify-center text-white font-black text-sm shadow-xl border border-white/10">
-                {userName.charAt(0)}
+        {/* User Profile Footer */}
+        <div className="relative p-6 border-t border-white/10 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl">
+          {/* Decorative Gradient */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
+
+          <div className="flex items-center gap-4 mb-5">
+            <div className="relative group">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-lg shadow-xl shadow-blue-500/30 border-2 border-white/20 transform group-hover:scale-110 transition-transform duration-300">
+                {userName.charAt(0).toUpperCase()}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-900 shadow-sm" />
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-slate-900 shadow-lg shadow-emerald-400/50">
+                <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping"></div>
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-black text-slate-100 truncate">{userName}</p>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{userRole}</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold text-white truncate mb-1">{userName}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg inline-block">
+                {userRole}
+              </p>
             </div>
           </div>
+
           <button
             onClick={onLogout}
-            className="w-full py-3.5 text-[10px] font-black uppercase tracking-widest text-rose-400 hover:text-rose-300 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-900/20 rounded-2xl transition-all flex items-center justify-center gap-2 group"
+            className="w-full py-3.5 text-xs font-black uppercase tracking-wider
+              text-rose-400 hover:text-white
+              bg-gradient-to-r from-rose-500/10 to-pink-500/10 
+              hover:from-rose-500 hover:to-pink-600
+              border border-rose-500/30 hover:border-transparent
+              rounded-2xl transition-all duration-300
+              flex items-center justify-center gap-3 group
+              shadow-lg hover:shadow-rose-500/30
+              active:scale-95"
           >
-            <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <svg className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             Sign Out
           </button>
         </div>
       </nav>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(to bottom, #3b82f6, #6366f1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(to bottom, #2563eb, #4f46e5);
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
     </>
   );
 };

@@ -3,6 +3,9 @@ import { LessonPlan, Student, ClassInsights } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// JAC API Configuration
+const JAC_API_BASE_URL = process.env.REACT_APP_JAC_API_URL || 'http://localhost:8000';
+
 const lessonSchema = {
   type: Type.OBJECT,
   properties: {
@@ -168,39 +171,391 @@ export const generateCBELesson = async (
   }
 };
 
-export const generateLabExperiment = async (query: string): Promise<{ text: string }> => {
+// ============================================
+// ENHANCED VIRTUAL LAB FUNCTIONS
+// These now call JAC walkers for better functionality
+// ============================================
+
+/**
+ * Virtual Lab Assistant - Chat Mode
+ * Calls the virtual_lab_assistant walker with interaction_type='chat'
+ */
+export const generateLabExperiment = async (
+  query: string,
+  lessonTopic: string = ''
+): Promise<{ text: string; lessonContext?: any }> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: query,
-      config: {
-        systemInstruction: "You are a friendly Virtual Lab Assistant. Explain scientific concepts simply and suggest safe, digital-first experiments or thought experiments. Keep answers concise.",
-      }
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/virtual_lab_assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: query,
+        lesson_topic: lessonTopic,
+        interaction_type: 'chat'
+      })
     });
-    return { text: response.text || "I couldn't generate an experiment right now." };
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      text: data.text || data.data?.text || 'No response generated',
+      lessonContext: data.lesson_context
+    };
   } catch (error) {
-    console.error("Error in lab chat:", error);
-    return { text: "Error connecting to the lab assistant." };
+    console.error('Error calling JAC lab assistant:', error);
+
+    // Fallback to direct Gemini API if JAC is unavailable
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `${lessonTopic ? `[Lesson: ${lessonTopic}] ` : ''}${query}`,
+        config: {
+          systemInstruction: "You are a friendly Virtual Lab Assistant for Kenyan CBE students. Explain scientific concepts simply and suggest safe, digital-first experiments. Keep answers concise and engaging.",
+          temperature: 0.7
+        }
+      });
+      return { text: response.text || "I couldn't generate a response right now." };
+    } catch (fallbackError) {
+      console.error("Fallback error:", fallbackError);
+      return { text: "Error connecting to the lab assistant. Please try again." };
+    }
   }
 };
 
-export const generateLabImage = async (prompt: string): Promise<string | null> => {
+/**
+ * Virtual Lab Assistant - Visualization Mode
+ * Calls the virtual_lab_assistant walker with interaction_type='visualize'
+ */
+export const generateLabImage = async (
+  query: string,
+  lessonTopic: string = ''
+): Promise<string | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `A scientific diagram or illustration of: ${prompt}. Clean, educational style, white background.` }]
-      }
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/virtual_lab_assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: query,
+        lesson_topic: lessonTopic,
+        interaction_type: 'visualize'
+      })
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // If JAC returns an image URL directly
+    if (data.image_url) {
+      return data.image_url;
+    }
+
+    // If JAC returns an image prompt, use it to generate via Gemini
+    if (data.image_prompt) {
+      try {
+        const imageResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [{ text: data.image_prompt }]
+          }
+        });
+
+        for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
+          if (part.inlineData) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+          }
+        }
+      } catch (imageError) {
+        console.error("Error generating image from prompt:", imageError);
       }
     }
+
     return null;
   } catch (error) {
-    console.error("Error generating lab image:", error);
+    console.error('Error generating lab visualization:', error);
+
+    // Fallback to direct Gemini image generation
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{
+            text: `Educational scientific diagram: ${query}. ${lessonTopic ? `Related to: ${lessonTopic}. ` : ''}Clean, labeled, colorful educational illustration with white background.`
+          }]
+        }
+      });
+
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+      return null;
+    } catch (fallbackError) {
+      console.error("Fallback image generation error:", fallbackError);
+      return null;
+    }
+  }
+};
+
+/**
+ * Virtual Lab Assistant - Custom Simulation Mode
+ * Calls the virtual_lab_assistant walker with interaction_type='simulate'
+ */
+export const generateCustomSimulation = async (
+  query: string,
+  lessonTopic: string = ''
+): Promise<{ type: string; simulationData: any; lessonContext?: any } | null> => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/virtual_lab_assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: query,
+        lesson_topic: lessonTopic,
+        interaction_type: 'simulate'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      type: data.type || 'simulation',
+      simulationData: data.data,
+      lessonContext: data.lesson_context
+    };
+  } catch (error) {
+    console.error('Error generating custom simulation:', error);
     return null;
+  }
+};
+
+/**
+ * Virtual Lab Assistant - Resources Mode
+ * Calls the virtual_lab_assistant walker with interaction_type='resources'
+ */
+export const getLabResources = async (
+  query: string,
+  lessonTopic: string = ''
+): Promise<{ type: string; resources: any; lessonContext?: any } | null> => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/virtual_lab_assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: query,
+        lesson_topic: lessonTopic,
+        interaction_type: 'resources'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      type: data.type || 'resources',
+      resources: data.data,
+      lessonContext: data.lesson_context
+    };
+  } catch (error) {
+    console.error('Error fetching lab resources:', error);
+    return null;
+  }
+};
+
+/**
+ * Get Simulation Library
+ * Calls the get_simulation_library walker
+ */
+export const getSimulationLibrary = async (
+  subject: string = 'all',
+  gradeLevel: string = 'all'
+): Promise<{ simulations: any[]; totalCount: number }> => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/get_simulation_library`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subject: subject,
+        grade_level: gradeLevel
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      simulations: data.simulations || [],
+      totalCount: data.total_count || 0
+    };
+  } catch (error) {
+    console.error('Error fetching simulation library:', error);
+
+    // Return empty library on error
+    return {
+      simulations: [],
+      totalCount: 0
+    };
+  }
+};
+
+/**
+ * Load Specific Simulation
+ * Calls the load_simulation walker
+ */
+export const loadSimulation = async (
+  simulationId: string,
+  customParams: Record<string, any> = {}
+): Promise<{ simulationId: string; code: any; ready: boolean } | null> => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/load_simulation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        simulation_id: simulationId,
+        custom_params: customParams
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      simulationId: data.simulation_id,
+      code: data.code,
+      ready: data.ready
+    };
+  } catch (error) {
+    console.error('Error loading simulation:', error);
+    return null;
+  }
+};
+
+// ============================================
+// EXISTING JAC WALKER FUNCTIONS
+// (If you're using JAC for lesson generation too)
+// ============================================
+
+/**
+ * Generate Lesson via JAC Walker (Alternative to generateCBELesson)
+ * Uncomment and use this if you want to use JAC for lesson generation
+ */
+/*
+export const generateLessonViaJAC = async (lessonParams: {
+  grade: string;
+  subject: string;
+  strand: string;
+  sub_strand: string;
+  duration: string;
+  lesson_type: string;
+  school_level: string;
+  additional_context?: string;
+  resources?: string;
+}): Promise<LessonPlan> => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/generate_lesson`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lessonParams)
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error generating lesson via JAC:', error);
+    throw error;
+  }
+};
+*/
+
+/**
+ * Track Student Progress via JAC Walker
+ */
+export const trackStudentProgress = async (studentId: string) => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/track_student_progress`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        student_id: studentId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error tracking student progress:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get Lesson Recommendations via JAC Walker
+ */
+export const recommendLessons = async (studentId: string, subject: string) => {
+  try {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/recommend_lessons`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        student_id: studentId,
+        subject: subject
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting lesson recommendations:', error);
+    throw error;
   }
 };

@@ -2,8 +2,7 @@ walker generate_lesson {
     has subject;
     has grade;
     has strand;
-    has sub_strand;
-
+    has sub_strand; 
     can start {
         report {
             "cbc_structure": {

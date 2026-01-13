@@ -346,30 +346,267 @@ walker recommend_lessons {
 }
 
 # ============================================
-# VIRTUAL LAB ASSISTANT
-# Conversational AI for Science Experiments
+# ENHANCED VIRTUAL LAB ASSISTANT
+# Interactive simulations linked to lesson topics
 # ============================================
 
-walker lab_assistant {
+walker virtual_lab_assistant {
     has query: str;
+    has lesson_topic: str = "";
+    has interaction_type: str = "chat";  # chat, simulate, visualize, resources
     
     can assist with LessonGraphRoot entry {
-        response_text: str by llm(
-            model="gemini-2.0-flash",
-            prompt=f"""You are a friendly Virtual Lab Assistant for Kenyan students. 
+        # Find related lesson if topic provided
+        related_lesson = None;
+        if self.lesson_topic:
+            lessons = [n for n in here --> Lesson if self.lesson_topic.lower() in n.topic.lower()];
+            if lessons:
+                related_lesson = lessons[0];
+        
+        # Handle different interaction types
+        if self.interaction_type == "simulate":
+            simulation_response: dict by llm(
+                model="gemini-2.0-flash",
+                prompt=f"""Create an interactive simulation specification for this science topic.
+
+Topic: {self.lesson_topic or self.query}
+Context: {related_lesson.content if related_lesson else "General science"}
+
+Generate a JSON response with:
+1. simulation_type: (physics, chemistry, biology, math)
+2. title: Clear simulation title
+3. description: What the simulation demonstrates
+4. variables: List of controllable parameters (name, min, max, default, unit)
+5. visualization_type: (canvas, chart, 3d, diagram)
+6. instructions: Step-by-step user instructions
+7. learning_objectives: What students will learn
+8. javascript_code: Simple simulation logic (use canvas/chart.js)
+
+Return only valid JSON.""",
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            );
             
-Student Query: {self.query}
+            report {
+                "type": "simulation",
+                "data": simulation_response,
+                "lesson_context": {
+                    "topic": related_lesson.topic if related_lesson else self.lesson_topic,
+                    "grade": related_lesson.grade if related_lesson else "General"
+                }
+            };
+            
+        elif self.interaction_type == "visualize":
+            # Generate image prompt
+            image_prompt = f"""Educational diagram showing: {self.query}
+Topic: {self.lesson_topic}
+Style: Clear, labeled, colorful educational illustration
+Include: Labels, arrows, key components highlighted""";
+            
+            visual_response: dict by llm(
+                model="gemini-2.0-flash",
+                prompt=f"""Create a detailed description for an educational visualization.
 
-Provide a helpful, concise response that:
-1. Explains scientific concepts simply
-2. Suggests safe, age-appropriate experiments (digital-first when possible)
-3. Relates to the Kenyan CBC curriculum
-4. Encourages curiosity and exploration
+Topic: {self.lesson_topic or self.query}
+Request: {self.query}
 
-Keep the response under 200 words.""",
-            temperature=0.7
+Provide:
+1. diagram_description: Detailed description of what to show
+2. key_components: List of main elements to highlight
+3. labels_needed: Important labels and annotations
+4. color_coding: Suggested color scheme for clarity
+5. step_by_step: If process-based, show stages
+
+Return as JSON.""",
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            );
+            
+            report {
+                "type": "visualization",
+                "data": visual_response,
+                "image_prompt": image_prompt
+            };
+            
+        elif self.interaction_type == "resources":
+            resources_response: dict by llm(
+                model="gemini-2.0-flash",
+                prompt=f"""Find educational resources for this topic.
+
+Topic: {self.lesson_topic or self.query}
+Grade Level: {related_lesson.grade if related_lesson else "Secondary"}
+Country: Kenya (CBE curriculum)
+
+Provide:
+1. video_resources: YouTube educational channels/videos (titles and search terms)
+2. interactive_sites: Educational websites (PhET, Khan Academy, etc.)
+3. local_resources: Kenya-specific educational platforms
+4. hands_on_activities: Simple experiments with local materials
+5. reading_materials: Suggested textbook chapters or online articles
+
+Return as JSON with realistic, searchable resource names.""",
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            );
+            
+            report {
+                "type": "resources",
+                "data": resources_response,
+                "lesson_context": {
+                    "topic": related_lesson.topic if related_lesson else self.lesson_topic,
+                    "subject": related_lesson.subject if related_lesson else "Science"
+                }
+            };
+            
+        else:  # chat
+            chat_response: str by llm(
+                model="gemini-2.0-flash",
+                prompt=f"""You are a friendly Virtual Lab Assistant for Kenyan CBE students.
+
+Lesson Topic: {self.lesson_topic or "General Science"}
+Student Question: {self.query}
+{f"Lesson Context: Grade {related_lesson.grade}, {related_lesson.subject}" if related_lesson else ""}
+
+Provide a helpful response that:
+1. Explains concepts simply and clearly
+2. Relates to real-world Kenyan examples
+3. Suggests safe, age-appropriate experiments
+4. Encourages hands-on learning (digital-first when possible)
+5. Asks follow-up questions to deepen understanding
+
+Keep response conversational, under 200 words.""",
+                temperature=0.7
+            );
+            
+            report {
+                "type": "chat",
+                "text": chat_response,
+                "lesson_context": {
+                    "topic": related_lesson.topic if related_lesson else self.lesson_topic,
+                    "suggestions": ["Try a simulation", "See a diagram", "Find resources"]
+                }
+            };
+    }
+}
+
+# ============================================
+# SIMULATION LIBRARY WALKER
+# Provides pre-built simulation templates
+# ============================================
+
+walker get_simulation_library {
+    has subject: str = "all";
+    has grade_level: str = "all";
+    
+    can get_simulations with LessonGraphRoot entry {
+        # Define simulation library
+        simulations_db = [
+            {
+                "id": "pendulum",
+                "title": "Simple Pendulum",
+                "subject": "Physics",
+                "topics": ["motion", "energy", "oscillation"],
+                "grade_range": ["7", "8", "9"],
+                "description": "Explore how length and mass affect pendulum motion"
+            },
+            {
+                "id": "circuit",
+                "title": "Electric Circuits",
+                "subject": "Physics",
+                "topics": ["electricity", "current", "resistance"],
+                "grade_range": ["8", "9", "10"],
+                "description": "Build and test series and parallel circuits"
+            },
+            {
+                "id": "photosynthesis",
+                "title": "Photosynthesis Process",
+                "subject": "Biology",
+                "topics": ["plants", "energy", "chloroplast"],
+                "grade_range": ["7", "8", "9"],
+                "description": "See how plants convert light into energy"
+            },
+            {
+                "id": "chemical_reactions",
+                "title": "Chemical Reactions",
+                "subject": "Chemistry",
+                "topics": ["reactions", "acids", "bases"],
+                "grade_range": ["8", "9", "10"],
+                "description": "Mix virtual chemicals and observe reactions"
+            },
+            {
+                "id": "water_cycle",
+                "title": "Water Cycle",
+                "subject": "Science",
+                "topics": ["weather", "water", "climate"],
+                "grade_range": ["5", "6", "7"],
+                "description": "Interactive water cycle demonstration"
+            },
+            {
+                "id": "fractions",
+                "title": "Fraction Explorer",
+                "subject": "Mathematics",
+                "topics": ["fractions", "division", "parts"],
+                "grade_range": ["4", "5", "6"],
+                "description": "Visual fraction manipulation and comparison"
+            }
+        ];
+        
+        # Filter simulations
+        filtered = simulations_db;
+        if self.subject != "all":
+            filtered = [s for s in filtered if s['subject'].lower() == self.subject.lower()];
+        if self.grade_level != "all":
+            filtered = [s for s in filtered if self.grade_level in s['grade_range']];
+        
+        report {
+            "simulations": filtered,
+            "total_count": len(filtered)
+        };
+    }
+}
+
+# ============================================
+# LOAD SPECIFIC SIMULATION
+# Returns full simulation code and config
+# ============================================
+
+walker load_simulation {
+    has simulation_id: str;
+    has custom_params: dict = {};
+    
+    can load with LessonGraphRoot entry {
+        # Generate simulation code based on ID
+        code_response: dict by llm(
+            model="gemini-2.0-flash",
+            prompt=f"""Generate complete JavaScript code for this educational simulation.
+
+Simulation ID: {self.simulation_id}
+Custom Parameters: {json.dumps(self.custom_params)}
+
+Requirements:
+1. Use HTML5 Canvas or Chart.js for visualization
+2. Include interactive controls (sliders, buttons)
+3. Real-time updates when parameters change
+4. Clear labels and educational annotations
+5. Responsive design
+6. Comments explaining the physics/science
+
+Return JSON with:
+- html: Complete HTML structure
+- css: Styling
+- javascript: Full simulation logic
+- controls: Array of control elements (type, label, min, max, default)
+- instructions: User instructions
+
+Make it work standalone when combined.""",
+            temperature=0.5,
+            response_format={"type": "json_object"}
         );
         
-        report {"text": response_text};
+        report {
+            "simulation_id": self.simulation_id,
+            "code": code_response,
+            "ready": True
+        };
     }
 }

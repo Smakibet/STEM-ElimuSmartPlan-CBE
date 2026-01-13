@@ -106,7 +106,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
   };
 
   const agents = [
-    { id: 1, name: 'Planner Agent', desc: 'Validating metadata & CBC alignment' },
+    { id: 1, name: 'Planner Agent', desc: 'Validating metadata(Grade,Subject,Duration) & CBE alignment' },
     { id: 2, name: 'Generator Agent', desc: 'byLLM Content Synthesis' },
     { id: 3, name: 'Analyzer Agent', desc: 'OSP Graph Traversal & Scoring' }
   ];
@@ -117,7 +117,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
       <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 h-fit space-y-8">
         <div className="border-b border-slate-50 pb-6 flex justify-between items-start">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Standardized Lesson Creator</h2>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Standardized Lesson Creator</h2>
             <p className="text-sm text-slate-400 font-medium">AI-Powered CBE STEM Compliant Planner</p>
           </div>
           <div className="flex bg-slate-100 p-1.5 rounded-2xl">
@@ -198,14 +198,14 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
             </div>
           </div>
 
-          <button disabled={loading} type="submit" className="w-full py-5 rounded-[24px] text-white font-black uppercase tracking-widest text-xs bg-slate-900 hover:bg-slate-800 shadow-2xl transition-all active:scale-95 disabled:bg-slate-100 disabled:text-slate-400">
-            {loading ? 'Orchestrating Agent Logic...' : 'Spawn Generation Walker'}
+          <button disabled={loading} type="submit" className="w-full py-5 rounded-[24px] text-white font-black tracking-widest text-xs bg-slate-900 hover:bg-slate-800 shadow-2xl transition-all active:scale-95 disabled:bg-slate-100 disabled:text-slate-400">
+            {loading ? 'Generating Standardized Lesson Plan with Multi-Agent Logic...' : 'Generate Standardized Lesson Plan'}
           </button>
         </form>
 
         {loading && (
           <div className="pt-6 space-y-4 animate-fade-in">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-4">ElimuSmartPlan</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-4">Smacqx ElimuSmartPlan</p>
             {agents.map(agent => (
               <div key={agent.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${activeAgent === agent.id ? 'bg-indigo-50 border-indigo-200 translate-x-2' : 'bg-slate-50 border-slate-100 opacity-40 grayscale'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${activeAgent === agent.id ? 'bg-indigo-600 text-white animate-pulse shadow-lg shadow-indigo-200' : 'bg-slate-200 text-slate-400'}`}>{agent.id}</div>
@@ -226,18 +226,18 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
             <div className="w-20 h-20 rounded-[32px] bg-slate-50 flex items-center justify-center mb-6 shadow-inner">
               <svg className="w-10 h-10 opacity-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
             </div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] opacity-40">Awaiting Graph Input</p>
+            <p className="text-sm font-black uppercase tracking-[0.2em] opacity-40">Awaiting Standardized Lesson Plan to print here</p>
           </div>
         ) : (
           <div className="flex flex-col h-full animate-scale-in">
             <div className="p-8 bg-slate-900 border-b border-slate-800 flex justify-between items-center text-white">
               <div>
-                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">byLLM Reasoning Node</span>
+                <span className="text-[10px] font-black uppercase text-emerald-400 tracking-widest">Eimu System Reasoning...</span>
                 <h3 className="font-bold text-lg truncate max-w-[200px] leading-tight">{lesson.topic}</h3>
               </div>
               <div className="flex gap-3">
                 <button onClick={handleDownloadText} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-white/10 tracking-widest">Download Txt</button>
-                <button onClick={() => onSave(lesson)} className="bg-emerald-500 text-emerald-950 px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-xl shadow-emerald-500/20 active:scale-95 transition-all tracking-widest">Save to Library</button>
+                <button onClick={() => onSave(lesson)} className="bg-emerald-500 text-emerald-950 px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-xl shadow-emerald-500/20 active:scale-95 transition-all tracking-widest">Save to Offline Library</button>
               </div>
             </div>
 
@@ -247,11 +247,11 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-100 rounded-full blur-3xl opacity-40 -mr-16 -mt-16"></div>
                   <h4 className="text-[10px] font-black text-indigo-600 uppercase mb-6 tracking-[0.2em] flex items-center gap-2">
                     <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse"></span>
-                    Analyzer Insight Walker
+                    Lesson Analyzer Insight
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CBE Target Objectives</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Competency-Based Objectives</p>
                       {graphAnalysis.analysis?.key_learning_objectives.map((obj: string, i: number) => (
                         <div key={i} className="flex gap-4 text-xs text-slate-700 font-medium items-start">
                           <span className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-[10px] shrink-0">{i + 1}</span>
@@ -263,7 +263,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Instructional Score</p>
                       <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm">
                         <span className="text-xl font-black text-indigo-900 block mb-1">Creative / Transformed</span>
-                        <p className="text-[10px] text-slate-500 leading-relaxed italic">The Walker confirms high levels of inquiry and creative synthesis in student activities.</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed italic">The System confirms high levels of inquiry and creative synthesis in student activities.</p>
                       </div>
                     </div>
                   </div>
@@ -271,7 +271,7 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
               )}
 
               <div className="space-y-10 pb-10">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-4">Institutional Instructional Path</h4>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-4">Lesson Instructional Roadmap</h4>
                 {lesson.sections.map((sec, i) => (
                   <div key={i} className="relative pl-10 group">
                     <div className="absolute left-0 top-0 w-1.5 h-full bg-slate-50 rounded-full group-hover:bg-emerald-500 transition-colors"></div>
@@ -282,11 +282,11 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
                     <p className="text-sm text-slate-600 leading-relaxed font-medium mb-6">{sec.content}</p>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 shadow-inner">
-                        <span className="block text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Teacher Walker</span>
+                        <span className="block text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Teacher Activity</span>
                         <p className="text-[11px] text-slate-600 leading-relaxed">{sec.teacherActivity}</p>
                       </div>
                       <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 shadow-inner">
-                        <span className="block text-[9px] font-black text-indigo-600 uppercase mb-2 tracking-widest">Learner Walker</span>
+                        <span className="block text-[9px] font-black text-indigo-600 uppercase mb-2 tracking-widest">Learner Activity</span>
                         <p className="text-[11px] text-slate-600 leading-relaxed">{sec.studentActivity}</p>
                       </div>
                     </div>
@@ -301,4 +301,4 @@ const LessonGenerator: React.FC<LessonGeneratorProps> = ({ onSave }) => {
   );
 };
 
-export default LessonGenerator;
+export default LessonGenerator
