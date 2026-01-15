@@ -82,14 +82,15 @@ export interface AttendanceRecord {
   duration?: string;
 }
 
-export type ViewState = 
-  | 'dashboard' 
-  | 'lesson-planner' 
-  | 'whiteboard' 
-  | 'virtual-lab' 
+export type ViewState =
+  | 'dashboard'
+  | 'lesson-planner'
+  | 'whiteboard'
+  | 'virtual-lab'
   | 'saved-lessons'
   | 'collaboration'
   | 'attendance'
+  | 'timetable-manager'
   | 'appraisal'
   | 'admin-panel'
   | 'student-tracker'
@@ -183,7 +184,7 @@ export interface Student {
   id: string;
   name: string;
   grade: string;
-  subjects: string[]; 
+  subjects: string[];
   admissionNumber: string;
   attendanceRate: number;
   overallPerformance: number;

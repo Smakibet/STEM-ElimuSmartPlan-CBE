@@ -5,6 +5,7 @@ import Whiteboard from './scripts/components/Whiteboard';
 import VirtualLab from './scripts/components/VirtualLab';
 import OfflineLibrary from './scripts/components/OfflineLibrary';
 import LoginPage from './scripts/components/LoginPage';
+import TimetableManager from './scripts/components/TimetableManager';
 import AttendanceTracker from './scripts/components/AttendanceTracker';
 import SupervisorDashboard from './scripts/components/SupervisorDashboard';
 import CollaborationHub from './scripts/components/CollaborationHub';
@@ -138,6 +139,13 @@ const App: React.FC = () => {
         );
       case 'lesson-planner': return <LessonGenerator onSave={saveLesson} />;
       case 'whiteboard': return <Whiteboard />;
+      case 'timetable-manager':
+        return user ? (
+          <TimetableManager
+            user={user}
+            apiBaseUrl="http://localhost:8000/api"
+          />
+        ) : null;
       case 'virtual-lab': return <VirtualLab />;
       case 'quiz-master': return <QuizSystem lessons={savedLessons} />;
       case 'saved-lessons': return <OfflineLibrary lessons={savedLessons} onView={setSelectedLesson} onDelete={deleteLesson} />;

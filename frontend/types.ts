@@ -63,6 +63,7 @@ export type ViewState =
   | 'saved-lessons'
   | 'collaboration'
   | 'attendance'
+  | 'timetable-manager'
   | 'appraisal'
   | 'admin-panel'
   | 'student-tracker'; // Added for Student Progress Feature

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LessonPlan, CoTeachingSession, ResourceBooking, PeerObservation, User } from '../../types';
 
 interface CollaborationHubProps {
@@ -7,20 +6,35 @@ interface CollaborationHubProps {
   user?: User | null;
 }
 
+interface TeacherAppraisal {
+  teacherId: string;
+  teacherName: string;
+  week: string;
+  totalLessons: number;
+  averageAttendance: number;
+  averageParticipation: number;
+  averageLessonScore: number;
+  totalStudentsEngaged: number;
+  subjectsTaught: string[];
+  rating: 'Excellent' | 'Good' | 'Average' | 'Needs Improvement';
+  recommendations: string[];
+}
+
 const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], user }) => {
-  const [activeTab, setActiveTab] = useState<'digital' | 'physical'>('digital');
+  const [activeTab, setActiveTab] = useState<'digital' | 'physical' | 'appraisal'>('digital');
   const [levelFilter, setLevelFilter] = useState<'All' | 'Junior' | 'Senior'>('All');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showCoTeachForm, setShowCoTeachForm] = useState(false);
-
-  // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  // Mock Forms
+  // Teacher Appraisal States
+  const [weeklyAppraisals, setWeeklyAppraisals] = useState<TeacherAppraisal[]>([]);
+  const [selectedAppraisalWeek, setSelectedAppraisalWeek] = useState('current');
+  const [appraisalLoading, setAppraisalLoading] = useState(false);
+
   const [bookingForm, setBookingForm] = useState({ resource: 'Science Lab', date: '', time: '' });
   const [coTeachForm, setCoTeachForm] = useState({ partner: '', date: '', topic: '', strategy: 'Team Teaching' });
 
-  // Mock Data
   const [sharedLessons, setSharedLessons] = useState<LessonPlan[]>([
     {
       id: 's1', topic: 'Intro to Robotics', subject: 'Computer Science', grade: 'Grade 8', schoolLevel: 'Junior',
@@ -47,6 +61,62 @@ const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], 
     { id: '1', resource: 'STEM Makerspace', date: '2024-03-15', timeSlot: '10:00 - 11:20', bookedBy: 'You' },
     { id: '2', resource: 'Physics Lab A', date: '2024-03-16', timeSlot: '08:40 - 09:20', bookedBy: 'Mr. Kamau' }
   ]);
+
+  useEffect(() => {
+    loadWeeklyAppraisals();
+  }, [selectedAppraisalWeek]);
+
+  const loadWeeklyAppraisals = async () => {
+    setAppraisalLoading(true);
+    try {
+      // Fetch from backend - this would call your Jaseci walker
+      // const data = await JacClient.spawnWalker('get_weekly_appraisals', { week: selectedAppraisalWeek }, user);
+
+      // Mock data for demonstration
+      const mockAppraisals: TeacherAppraisal[] = [
+        {
+          teacherId: user?.id || '1',
+          teacherName: user?.name || 'Current Teacher',
+          week: 'Week 1 - Jan 2026',
+          totalLessons: 18,
+          averageAttendance: 92.5,
+          averageParticipation: 7.3,
+          averageLessonScore: 78.4,
+          totalStudentsEngaged: 245,
+          subjectsTaught: ['Physics', 'Chemistry', 'Mathematics'],
+          rating: 'Excellent',
+          recommendations: [
+            'Continue using interactive demonstrations',
+            'Consider peer teaching for advanced topics',
+            'Maintain high engagement levels in practical sessions'
+          ]
+        },
+        {
+          teacherId: '2',
+          teacherName: 'Mr. Kamau',
+          week: 'Week 1 - Jan 2026',
+          totalLessons: 15,
+          averageAttendance: 88.2,
+          averageParticipation: 6.1,
+          averageLessonScore: 72.8,
+          totalStudentsEngaged: 198,
+          subjectsTaught: ['Biology', 'Agricultural Science'],
+          rating: 'Good',
+          recommendations: [
+            'Increase Q&A opportunities',
+            'Integrate more hands-on activities',
+            'Focus on struggling learners in Grade 9'
+          ]
+        }
+      ];
+
+      setWeeklyAppraisals(mockAppraisals);
+    } catch (error) {
+      console.error('Failed to load appraisals:', error);
+    } finally {
+      setAppraisalLoading(false);
+    }
+  };
 
   const handleBookResource = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,15 +164,166 @@ const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], 
     alert(`Success: "${lesson.topic}" has been cloned to your offline library.`);
   };
 
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case 'Excellent': return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+      case 'Good': return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'Average': return 'bg-amber-100 text-amber-700 border-amber-300';
+      default: return 'bg-rose-100 text-rose-700 border-rose-300';
+    }
+  };
+
+  const renderAppraisalTab = () => (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-8 text-white">
+        <h2 className="text-3xl font-black mb-2">Weekly Teacher Appraisal Dashboard</h2>
+        <p className="opacity-90 max-w-3xl">
+          Automated performance tracking based on student attendance, participation, and lesson engagement data.
+          Used for TPAD (Teacher Performance Appraisal and Development) and professional growth.
+        </p>
+
+        <div className="mt-6 flex gap-3">
+          <select
+            value={selectedAppraisalWeek}
+            onChange={(e) => setSelectedAppraisalWeek(e.target.value)}
+            className="bg-white/20 backdrop-blur-sm border-2 border-white/30 rounded-xl px-4 py-2 text-white font-bold outline-none"
+          >
+            <option value="current">Current Week</option>
+            <option value="week1">Week 1 - Jan 2026</option>
+            <option value="week2">Week 2 - Jan 2026</option>
+            <option value="week3">Week 3 - Jan 2026</option>
+          </select>
+          <button
+            onClick={loadWeeklyAppraisals}
+            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border-2 border-white/30 rounded-xl px-6 py-2 font-bold transition-all"
+          >
+            🔄 Refresh Data
+          </button>
+        </div>
+      </div>
+
+      {appraisalLoading ? (
+        <div className="bg-white p-20 rounded-3xl text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-slate-600 font-bold">Loading appraisal data...</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {weeklyAppraisals.map(appraisal => (
+            <div key={appraisal.teacherId} className="bg-white rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-800 to-slate-700 p-6 text-white">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-2xl font-black mb-1">{appraisal.teacherName}</h3>
+                    <p className="text-slate-300 text-sm">{appraisal.week}</p>
+                  </div>
+                  <span className={`px-5 py-2 rounded-xl font-black text-sm border-2 ${getRatingColor(appraisal.rating)}`}>
+                    {appraisal.rating}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-8">
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                  <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border-2 border-blue-200">
+                    <p className="text-4xl font-black text-blue-700 mb-2">{appraisal.totalLessons}</p>
+                    <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Total Lessons</p>
+                  </div>
+
+                  <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl border-2 border-emerald-200">
+                    <p className="text-4xl font-black text-emerald-700 mb-2">{appraisal.averageAttendance.toFixed(1)}%</p>
+                    <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Avg Attendance</p>
+                  </div>
+
+                  <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl border-2 border-purple-200">
+                    <p className="text-4xl font-black text-purple-700 mb-2">{appraisal.averageParticipation.toFixed(1)}</p>
+                    <p className="text-xs text-purple-600 font-bold uppercase tracking-wider">Avg Participation</p>
+                  </div>
+
+                  <div className="text-center p-6 bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl border-2 border-amber-200">
+                    <p className="text-4xl font-black text-amber-700 mb-2">{appraisal.averageLessonScore.toFixed(1)}%</p>
+                    <p className="text-xs text-amber-600 font-bold uppercase tracking-wider">Avg Lesson Score</p>
+                  </div>
+                </div>
+
+                {/* Additional Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                    <h4 className="font-black text-slate-800 mb-3 text-sm uppercase tracking-wider">Subjects Taught</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {appraisal.subjectsTaught.map(subject => (
+                        <span key={subject} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-sm font-bold border border-indigo-200">
+                          {subject}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-4 text-slate-600 text-sm">
+                      <span className="font-black">{appraisal.totalStudentsEngaged}</span> total students engaged
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                    <h4 className="font-black text-slate-800 mb-3 text-sm uppercase tracking-wider">AI Recommendations</h4>
+                    <ul className="space-y-2">
+                      {appraisal.recommendations.map((rec, idx) => (
+                        <li key={idx} className="flex gap-2 text-sm text-slate-700">
+                          <span className="text-emerald-600 font-bold">●</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mt-6 flex gap-3">
+                  <button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition-all">
+                    📊 View Detailed Report
+                  </button>
+                  <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-all">
+                    📥 Export PDF
+                  </button>
+                  <button className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold transition-all">
+                    📧 Share with Supervisor
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Department Summary */}
+      <div className="bg-white p-8 rounded-3xl shadow-lg border-2 border-slate-200">
+        <h3 className="font-black text-2xl text-slate-900 mb-6">Department Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-6 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-2xl border-2 border-indigo-200">
+            <p className="text-3xl font-black text-indigo-700 mb-2">12</p>
+            <p className="text-sm text-indigo-600 font-bold">Active Teachers</p>
+          </div>
+          <div className="p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl border-2 border-emerald-200">
+            <p className="text-3xl font-black text-emerald-700 mb-2">86.3%</p>
+            <p className="text-sm text-emerald-600 font-bold">Dept Avg Attendance</p>
+          </div>
+          <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl border-2 border-purple-200">
+            <p className="text-3xl font-black text-purple-700 mb-2">245</p>
+            <p className="text-sm text-purple-600 font-bold">Total Lessons This Week</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col space-y-6 overflow-y-auto pb-6 relative">
       <div className="bg-gradient-to-r from-purple-700 to-indigo-800 rounded-xl p-8 text-white relative overflow-hidden shrink-0">
         <div className="relative z-10">
           <h2 className="text-3xl font-bold mb-2">Collaboration Hub</h2>
           <p className="opacity-90 max-w-2xl mb-6">
-            Connect with colleagues to standardize delivery and share resources.
+            Connect with colleagues, share resources, and track teacher performance for TPAD appraisal.
           </p>
-          <div className="flex p-1 bg-white/20 rounded-lg w-fit backdrop-blur-sm">
+          <div className="flex p-1 bg-white/20 rounded-lg w-fit backdrop-blur-sm flex-wrap gap-2">
             <button
               onClick={() => setActiveTab('digital')}
               className={`px-5 py-2 rounded-md font-medium transition-all ${activeTab === 'digital' ? 'bg-white text-indigo-900 shadow-md' : 'text-white hover:bg-white/10'}`}
@@ -115,11 +336,19 @@ const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], 
             >
               Physical Collaboration
             </button>
+            <button
+              onClick={() => setActiveTab('appraisal')}
+              className={`px-5 py-2 rounded-md font-medium transition-all ${activeTab === 'appraisal' ? 'bg-white text-indigo-900 shadow-md' : 'text-white hover:bg-white/10'}`}
+            >
+              Teacher Appraisal
+            </button>
           </div>
         </div>
       </div>
 
-      {activeTab === 'digital' ? (
+      {activeTab === 'appraisal' && renderAppraisalTab()}
+
+      {activeTab === 'digital' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -177,9 +406,10 @@ const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], 
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'physical' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Co-Teaching Section */}
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex justify-between items-center mb-6">
@@ -223,7 +453,6 @@ const CollaborationHub: React.FC<CollaborationHubProps> = ({ savedLessons = [], 
             </div>
           </div>
 
-          {/* Resource Booking Section */}
           <div className="space-y-4">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex justify-between items-center mb-6">

@@ -1,20 +1,74 @@
-import React, { useState } from 'react';
-import { JacClient } from '../../services/jacService';
+import React, { useState, useEffect } from 'react';
 
-const QuizSystem = ({ lessons = [] }) => {
+const JAC_API_BASE_URL = process.env.REACT_APP_JAC_API_URL || 'http://localhost:8000';
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || process.env.API_KEY;
+
+interface Lesson {
+  id: string;
+  topic: string;
+  grade: string;
+  content: string;
+  objectives?: string[];
+  difficulty?: string;
+}
+
+interface Question {
+  id: string;
+  type: 'multiple_choice' | 'code';
+  question: string;
+  options?: string[];
+  correctAnswer: number | string;
+  explanation: string;
+  difficulty?: string;
+  initialCode?: string;
+}
+
+interface Quiz {
+  id: string;
+  lessonId: string;
+  topic: string;
+  grade: string;
+  generatedAt: string;
+  questions: Question[];
+}
+
+interface QuizSystemProps {
+  lessons?: Lesson[];
+}
+
+const QuizSystem: React.FC<QuizSystemProps> = ({ lessons = [] }) => {
   const [loading, setLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState(null);
+  const [activeAgent, setActiveAgent] = useState<number | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState('');
-  const [quiz, setQuiz] = useState(null);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
-  const [feedback, setFeedback] = useState(null);
+  const [feedback, setFeedback] = useState<any>(null);
   const [score, setScore] = useState(0);
-  const [view, setView] = useState('setup');
-  const [error, setError] = useState(null);
+  const [view, setView] = useState<'setup' | 'quiz' | 'results'>('setup');
+  const [error, setError] = useState<string | null>(null);
+  const [jacAvailable, setJacAvailable] = useState(false);
+
+  // Check if JAC is available on mount
+  useEffect(() => {
+    checkJacAvailability();
+  }, []);
+
+  const checkJacAvailability = async () => {
+    try {
+      const response = await fetch(`${JAC_API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      setJacAvailable(response.ok);
+    } catch (error) {
+      console.warn('JAC server not available, using direct Gemini API');
+      setJacAvailable(false);
+    }
+  };
 
   // Fallback lessons if none provided
-  const defaultLessons = [
+  const defaultLessons: Lesson[] = [
     {
       id: '1',
       topic: 'Introduction to Python Programming',
@@ -33,10 +87,10 @@ const QuizSystem = ({ lessons = [] }) => {
     },
     {
       id: '3',
-      topic: 'World Geography and Continents',
+      topic: 'Cell Biology Fundamentals',
       grade: 'Grade 7',
-      content: 'Earth has seven continents: Africa, Antarctica, Asia, Europe, North America, Oceania, and South America. Each continent has unique geographic features. Countries are political divisions within continents. Capital cities serve as governmental centers. Climate zones affect ecosystems and human settlement. Physical geography includes mountains, rivers, and deserts.',
-      objectives: ['Identify continents', 'Understand political boundaries', 'Recognize climate zones'],
+      content: 'Cells are the basic units of life. Plant cells have cell walls and chloroplasts. Animal cells have centrioles. The nucleus contains genetic material. Mitochondria produce energy. The cell membrane controls what enters and exits the cell. Ribosomes synthesize proteins.',
+      objectives: ['Identify cell structures', 'Understand cell functions', 'Compare plant and animal cells'],
       difficulty: 'beginner'
     }
   ];
@@ -49,8 +103,38 @@ const QuizSystem = ({ lessons = [] }) => {
     { id: 3, name: 'Validator Agent', desc: 'Validating question quality and distractors...' }
   ];
 
-  const generateQuizWithAI = async (lesson) => {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+  const generateQuizViaJAC = async (lesson: Lesson): Promise<Quiz> => {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/generate_quiz`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        lesson_context: {
+          id: lesson.id,
+          topic: lesson.topic,
+          grade: lesson.grade,
+          content: lesson.content,
+          objectives: lesson.objectives || [],
+          difficulty: lesson.difficulty || 'intermediate'
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  };
+
+  const generateQuizViaGemini = async (lesson: Lesson): Promise<Quiz> => {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured. Please set REACT_APP_GEMINI_API_KEY or API_KEY in your .env file.');
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -58,7 +142,7 @@ const QuizSystem = ({ lessons = [] }) => {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an expert educational assessment designer. Generate a comprehensive quiz based on this lesson.
+            text: `You are an expert educational assessment designer for the Kenyan CBC curriculum. Generate a comprehensive quiz based on this lesson.
 
 LESSON DETAILS:
 Topic: ${lesson.topic}
@@ -67,7 +151,7 @@ Content: ${lesson.content}
 Learning Objectives: ${lesson.objectives?.join(', ') || 'General understanding'}
 Difficulty: ${lesson.difficulty || 'intermediate'}
 
-TASK: Generate a quiz with 5 questions that thoroughly assess understanding of this lesson. Mix question types appropriately.
+TASK: Generate a quiz with 5 questions that thoroughly assess understanding of this lesson.
 
 Return ONLY valid JSON in this EXACT format (no markdown, no extra text):
 {
@@ -85,22 +169,23 @@ Return ONLY valid JSON in this EXACT format (no markdown, no extra text):
 }
 
 REQUIREMENTS:
-- Generate 5 questions total
+- Generate exactly 5 questions
 - Make 4 multiple choice questions and 1 code/open-ended question if topic involves programming, otherwise all multiple choice
 - For code questions, use type "code" and include "initialCode" field instead of "options"
 - Each question must test a different concept from the lesson
-- correctAnswer is the index (0-3) of correct option for multiple choice
+- correctAnswer is the index (0-3) of correct option for multiple choice, or expected code output for code questions
 - Make distractors plausible but clearly wrong
-- Align difficulty with grade level
-- Provide thorough explanations
-- Questions should be pedagogically sound
+- Align difficulty with grade level: ${lesson.grade}
+- Provide thorough explanations that teach the concept
+- Questions should be pedagogically sound and aligned with CBC standards
 
-Return ONLY the JSON object.`
+Return ONLY the JSON object, no other text.`
           }]
         }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 3000,
+          responseMimeType: "application/json"
         }
       })
     });
@@ -112,27 +197,52 @@ Return ONLY the JSON object.`
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
+    let parsedQuiz;
     try {
-      const parsedQuiz = JSON.parse(cleanText);
-      return {
-        id: `quiz_${Date.now()}`,
-        lessonId: lesson.id,
-        topic: lesson.topic,
-        grade: lesson.grade,
-        generatedAt: new Date().toISOString(),
-        questions: parsedQuiz.questions
-      };
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      parsedQuiz = JSON.parse(cleanText);
     } catch (parseError) {
       console.error("Parse error:", parseError);
-      console.error("Received text:", cleanText);
+      console.error("Received text:", text);
       throw new Error("Failed to parse AI-generated quiz. Please try again.");
     }
+
+    return {
+      id: `quiz_${Date.now()}`,
+      lessonId: lesson.id,
+      topic: lesson.topic,
+      grade: lesson.grade,
+      generatedAt: new Date().toISOString(),
+      questions: parsedQuiz.questions
+    };
   };
 
-  const evaluateAnswerWithAI = async (question, userAnswer) => {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent", {
+  const evaluateAnswerViaJAC = async (question: Question, userAnswer: string | number) => {
+    const response = await fetch(`${JAC_API_BASE_URL}/walker/evaluate_answer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        question: question,
+        user_answer: userAnswer
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`JAC Evaluation Error: ${response.status}`);
+    }
+
+    return await response.json();
+  };
+
+  const evaluateAnswerViaGemini = async (question: Question, userAnswer: string | number) => {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -140,15 +250,15 @@ Return ONLY the JSON object.`
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `Evaluate this student's answer with pedagogical expertise.
+            text: `Evaluate this student's answer with pedagogical expertise for Kenyan CBC standards.
 
 QUESTION: ${question.question}
 TYPE: ${question.type}
 ${question.options ? `OPTIONS: ${question.options.map((o, i) => `${i}: ${o}`).join(', ')}` : ''}
-CORRECT ANSWER: ${question.type === 'multiple_choice' ? `Index ${question.correctAnswer} - ${question.options[question.correctAnswer]}` : question.correctAnswer}
-STUDENT'S ANSWER: ${question.type === 'multiple_choice' ? `Index ${userAnswer} - ${question.options[userAnswer]}` : userAnswer}
+CORRECT ANSWER: ${question.type === 'multiple_choice' ? `Index ${question.correctAnswer} - ${question.options?.[Number(question.correctAnswer)]}` : question.correctAnswer}
+STUDENT'S ANSWER: ${question.type === 'multiple_choice' ? `Index ${userAnswer} - ${question.options?.[Number(userAnswer)]}` : userAnswer}
 
-Provide constructive feedback appropriate for a ${question.difficulty || 'intermediate'} level learner.
+Provide constructive feedback appropriate for ${question.difficulty || 'intermediate'} level learner in ${displayLessons.find(l => l.id === selectedLessonId)?.grade || 'secondary school'}.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -156,12 +266,13 @@ Return ONLY valid JSON (no markdown):
   "feedback": "Detailed, encouraging feedback that explains the concept"
 }
 
-Make feedback educational and supportive.`
+Make feedback educational, supportive, and culturally relevant to Kenyan students.`
           }]
         }],
         generationConfig: {
           temperature: 0.5,
           maxOutputTokens: 1024,
+          responseMimeType: "application/json"
         }
       })
     });
@@ -172,15 +283,15 @@ Make feedback educational and supportive.`
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     try {
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanText);
     } catch (parseError) {
       // Fallback evaluation
       const isCorrect = question.type === 'multiple_choice'
-        ? Number(userAnswer) === question.correctAnswer
-        : userAnswer.toLowerCase().includes(String(question.correctAnswer).toLowerCase());
+        ? Number(userAnswer) === Number(question.correctAnswer)
+        : String(userAnswer).toLowerCase().includes(String(question.correctAnswer).toLowerCase());
 
       return {
         isCorrect,
@@ -201,32 +312,35 @@ Make feedback educational and supportive.`
     setError(null);
     const lesson = displayLessons.find(l => l.id === selectedLessonId);
 
+    if (!lesson) {
+      setError('Selected lesson not found');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Agent 1: Context Synthesis
       setActiveAgent(1);
       await new Promise(r => setTimeout(r, 800));
 
-      // Try JacClient first if available
-      let result;
-      try {
-        setActiveAgent(2);
-        result = await JacClient.spawnWalker('generate_quiz', {
-          lessonContext: lesson,
-          topic: lesson.topic,
-          content: lesson.content,
-          objectives: lesson.objectives,
-          difficulty: lesson.difficulty,
-          grade: lesson.grade
-        });
+      // Agent 2: Generation
+      setActiveAgent(2);
+      let result: Quiz;
 
-        // Validate JacClient response
-        if (!result || !result.questions || !Array.isArray(result.questions)) {
-          throw new Error("Invalid response from JacClient");
+      if (jacAvailable) {
+        try {
+          result = await generateQuizViaJAC(lesson);
+        } catch (jacError: any) {
+          console.warn("JAC unavailable, using Gemini:", jacError.message);
+          result = await generateQuizViaGemini(lesson);
         }
-      } catch (jacError) {
-        console.warn("JacClient unavailable, using AI generation:", jacError.message);
-        // Fallback to AI generation
-        result = await generateQuizWithAI(lesson);
+      } else {
+        result = await generateQuizViaGemini(lesson);
+      }
+
+      // Validate result
+      if (!result || !result.questions || !Array.isArray(result.questions) || result.questions.length === 0) {
+        throw new Error("Invalid quiz generated - no questions returned");
       }
 
       // Agent 3: Validation
@@ -240,7 +354,7 @@ Make feedback educational and supportive.`
       setUserAnswer('');
       setView('quiz');
       setActiveAgent(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Quiz generation error:", err);
       setError(`Failed to generate quiz: ${err.message}`);
       setActiveAgent(null);
@@ -250,34 +364,45 @@ Make feedback educational and supportive.`
   };
 
   const handleEvaluate = async () => {
-    if (!quiz || userAnswer === '') return;
-    const currentQ = quiz.questions[currentIndex];
+    if (!quiz || userAnswer === '') {
+      setError('Please provide an answer');
+      return;
+    }
 
+    const currentQ = quiz.questions[currentIndex];
     setLoading(true);
     setError(null);
 
     try {
       let result;
-      try {
-        // Try JacClient evaluation first
-        result = await JacClient.spawnWalker('evaluate_answer', {
-          question: currentQ,
-          answer: currentQ.type === 'multiple_choice' ? Number(userAnswer) : userAnswer,
-          lessonContext: displayLessons.find(l => l.id === quiz.lessonId)
-        });
 
-        if (!result || typeof result.isCorrect === 'undefined') {
-          throw new Error("Invalid evaluation response");
+      if (jacAvailable) {
+        try {
+          result = await evaluateAnswerViaJAC(
+            currentQ,
+            currentQ.type === 'multiple_choice' ? Number(userAnswer) : userAnswer
+          );
+        } catch (jacError: any) {
+          console.warn("JAC evaluation unavailable, using Gemini:", jacError.message);
+          result = await evaluateAnswerViaGemini(
+            currentQ,
+            currentQ.type === 'multiple_choice' ? Number(userAnswer) : userAnswer
+          );
         }
-      } catch (jacError) {
-        console.warn("JacClient evaluation unavailable, using AI:", jacError.message);
-        // Fallback to AI evaluation
-        result = await evaluateAnswerWithAI(currentQ, userAnswer);
+      } else {
+        result = await evaluateAnswerViaGemini(
+          currentQ,
+          currentQ.type === 'multiple_choice' ? Number(userAnswer) : userAnswer
+        );
+      }
+
+      if (typeof result.isCorrect === 'undefined') {
+        throw new Error("Invalid evaluation response");
       }
 
       setFeedback(result);
       if (result.isCorrect) setScore(s => s + 1);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Evaluation error:", err);
       setError(`Evaluation failed: ${err.message}`);
     } finally {
@@ -304,7 +429,7 @@ Make feedback educational and supportive.`
       id: `res_${Date.now()}`,
       quizId: quiz.id,
       lessonId: quiz.lessonId,
-      studentId: 'demo_student',
+      studentId: 'demo_student', // Replace with actual student ID from auth
       score,
       total: quiz.questions.length,
       percentage: Math.round((score / quiz.questions.length) * 100),
@@ -313,27 +438,39 @@ Make feedback educational and supportive.`
       feedback: "Assessment completed via Elimu AI Quiz System.",
       answers: quiz.questions.map((q, i) => ({
         questionId: q.id,
-        correct: i < currentIndex ? (feedback?.isCorrect || false) : false
+        correct: i <= currentIndex ? (feedback?.isCorrect || false) : false
       }))
     };
 
     try {
-      // Try saving via JacClient
-      try {
-        await JacClient.spawnWalker('save_quiz_result', { result });
-        alert(`Results committed to Elimu OSP Graph!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)`);
-      } catch (jacError) {
-        console.warn("JacClient save unavailable:", jacError.message);
-        // Fallback: log to console
-        console.log("Quiz Results (JacClient unavailable):", result);
-        alert(`Quiz completed!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)\n\nResults logged to console (JacClient unavailable).`);
+      if (jacAvailable) {
+        try {
+          const response = await fetch(`${JAC_API_BASE_URL}/walker/save_quiz_result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ result })
+          });
+
+          if (response.ok) {
+            alert(`Results saved to Elimu OSP Graph!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)`);
+          } else {
+            throw new Error('Failed to save to JAC');
+          }
+        } catch (jacError) {
+          console.warn("JAC save unavailable:", jacError);
+          console.log("Quiz Results:", result);
+          alert(`Quiz completed!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)\n\nResults logged locally (JAC unavailable).`);
+        }
+      } else {
+        console.log("Quiz Results:", result);
+        alert(`Quiz completed!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)\n\nResults logged locally.`);
       }
 
       setQuiz(null);
       setView('setup');
       setSelectedLessonId('');
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save error:", err);
       setError(`Failed to save results: ${err.message}`);
     } finally {
@@ -348,14 +485,16 @@ Make feedback educational and supportive.`
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">Quiz Master</h2>
-              <p className="text-slate-400 font-medium text-sm uppercase tracking-widest">AI Assessment Node • Powered by Jac + Gemini 2.0</p>
+              <p className="text-slate-400 font-medium text-sm uppercase tracking-widest">
+                AI Assessment Node • Powered by {jacAvailable ? 'Jac + Gemini 2.0' : 'Gemini 2.0'}
+              </p>
             </div>
-            {typeof JacClient !== 'undefined' && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-full">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-bold text-emerald-700">JacClient Active</span>
-              </div>
-            )}
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${jacAvailable ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div className={`w-2 h-2 rounded-full ${jacAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+              <span className={`text-xs font-bold ${jacAvailable ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {jacAvailable ? 'JAC Active' : 'Gemini Only'}
+              </span>
+            </div>
           </div>
 
           {error && (
@@ -388,7 +527,7 @@ Make feedback educational and supportive.`
                   </p>
                   {displayLessons.find(l => l.id === selectedLessonId)?.objectives && (
                     <div className="flex flex-wrap gap-2 mt-4">
-                      {displayLessons.find(l => l.id === selectedLessonId).objectives.map((obj, i) => (
+                      {displayLessons.find(l => l.id === selectedLessonId)?.objectives?.map((obj, i) => (
                         <span key={i} className="px-3 py-1 bg-white rounded-full text-xs font-bold text-indigo-700 border border-indigo-200">
                           {obj}
                         </span>
@@ -464,7 +603,7 @@ Make feedback educational and supportive.`
               ) : (
                 <div className="space-y-4">
                   <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                    <p className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-4">byLLM Code Editor</p>
+                    <p className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-4">Code Editor</p>
                     <textarea
                       value={userAnswer || quiz.questions[currentIndex].initialCode || ''}
                       onChange={e => setUserAnswer(e.target.value)}
@@ -532,7 +671,7 @@ Make feedback educational and supportive.`
                   disabled={loading}
                   className="flex-1 py-4 rounded-2xl bg-emerald-600 text-white font-black uppercase text-xs tracking-widest hover:bg-emerald-700 shadow-xl transition-all disabled:bg-emerald-300"
                 >
-                  {loading ? 'Saving...' : 'Save to Elimu OSP'}
+                  {loading ? 'Saving...' : 'Save Results'}
                 </button>
               </div>
             </div>

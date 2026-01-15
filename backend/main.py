@@ -5,7 +5,10 @@ from datetime import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
 import json
-
+from typing import List, Optional
+import uuid
+from typing import List, Optional, Dict, Any
+import uuid
 # Load environment variables
 load_dotenv()
 
@@ -38,7 +41,178 @@ class LessonGraphRoot:
         self.lessons = {}
         self.students = {}
         self.competencies = {}
+        # Timetable
+        self.timetable_entries = {}
+        # Student Tracker
+        self.attendance_records = {}
+        self.participation_records = {}
+        self.daily_summaries = []
+        self.class_insights = {
+            "totalStudents": 0,
+            "averageAttendance": 0,
+            "averagePerformance": 0,
+            "weakCompetencies": [],
+            "topPerformers": []
+        }
+# ============================================
+# STUDENT TRACKER DATA STRUCTURES
+# ============================================
 
+class Student:
+    def __init__(self, id: str, name: str, admissionNumber: str, grade: str, 
+                 attendanceRate: float, overallPerformance: float):
+        self.id = id
+        self.name = name
+        self.admissionNumber = admissionNumber
+        self.grade = grade
+        self.attendanceRate = attendanceRate
+        self.overallPerformance = overallPerformance
+        self.weakCompetencies = []
+        self.strengths = []
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "admissionNumber": self.admissionNumber,
+            "grade": self.grade,
+            "attendanceRate": self.attendanceRate,
+            "overallPerformance": self.overallPerformance,
+            "weakCompetencies": self.weakCompetencies,
+            "strengths": self.strengths
+        }
+
+class AttendanceRecord:
+    def __init__(self, data: Dict[str, Any]):
+        self.id = data.get("id")
+        self.studentId = data.get("studentId")
+        self.date = data.get("date")
+        self.time = data.get("time")
+        self.lessonPeriod = data.get("lessonPeriod")
+        self.class_name = data.get("class")
+        self.stream = data.get("stream")
+        self.pathway = data.get("pathway")
+        self.subject = data.get("subject")
+        self.teacher = data.get("teacher")
+        self.strand = data.get("strand")
+        self.subStrand = data.get("subStrand")
+        self.objectives = data.get("objectives", [])
+        self.loginMethod = data.get("loginMethod", "manual")
+        self.status = data.get("status", "present")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "studentId": self.studentId,
+            "date": self.date,
+            "time": self.time,
+            "lessonPeriod": self.lessonPeriod,
+            "class": self.class_name,
+            "stream": self.stream,
+            "pathway": self.pathway,
+            "subject": self.subject,
+            "teacher": self.teacher,
+            "strand": self.strand,
+            "subStrand": self.subStrand,
+            "objectives": self.objectives,
+            "loginMethod": self.loginMethod,
+            "status": self.status
+        }
+
+class ParticipationRecord:
+    def __init__(self, data: Dict[str, Any]):
+        self.id = data.get("id")
+        self.studentId = data.get("studentId")
+        self.attendanceId = data.get("attendanceId")
+        self.lessonDate = data.get("lessonDate")
+        self.questionAnswered = data.get("questionAnswered", 0)
+        self.contributions = data.get("contributions", 0)
+        self.engagement = data.get("engagement", "low")
+        self.individualizedQuestions = data.get("individualizedQuestions", [])
+        self.lessonScore = data.get("lessonScore", 0)
+        self.clockOutTime = data.get("clockOutTime")
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "studentId": self.studentId,
+            "attendanceId": self.attendanceId,
+            "lessonDate": self.lessonDate,
+            "questionAnswered": self.questionAnswered,
+            "contributions": self.contributions,
+            "engagement": self.engagement,
+            "individualizedQuestions": self.individualizedQuestions,
+            "lessonScore": self.lessonScore,
+            "clockOutTime": self.clockOutTime
+        }
+
+class DailySummary:
+    def __init__(self, data: Dict[str, Any]):
+        self.date = data.get("date")
+        self.subject = data.get("subject")
+        self.class_name = data.get("class")
+        self.totalStudents = data.get("totalStudents")
+        self.presentStudents = data.get("presentStudents")
+        self.averageParticipation = data.get("averageParticipation")
+        self.averageLessonScore = data.get("averageLessonScore")
+        self.teacherId = data.get("teacherId")
+        self.teacherName = data.get("teacherName")
+    
+    def to_dict(self):
+        return {
+            "date": self.date,
+            "subject": self.subject,
+            "class": self.class_name,
+            "totalStudents": self.totalStudents,
+            "presentStudents": self.presentStudents,
+            "averageParticipation": self.averageParticipation,
+            "averageLessonScore": self.averageLessonScore,
+            "teacherId": self.teacherId,
+            "teacherName": self.teacherName
+        }
+# ============================================
+# TIMETABLE SYSTEM
+# ============================================
+
+class TimetableEntry:
+    def __init__(self, id: str, dayOfWeek: str, periodNumber: int, 
+                 class_name: str, stream: str, pathway: str, subject: str,
+                 strand: str, subStrand: str, teacherId: str, teacherName: str,
+                 room: str, objectives: List[str]):
+        self.id = id
+        self.dayOfWeek = dayOfWeek
+        self.periodNumber = periodNumber
+        self.class_name = class_name
+        self.stream = stream
+        self.pathway = pathway
+        self.subject = subject
+        self.strand = strand
+        self.subStrand = subStrand
+        self.teacherId = teacherId
+        self.teacherName = teacherName
+        self.room = room
+        self.objectives = objectives
+        self.created_at = datetime.now().isoformat()
+        self.updated_at = datetime.now().isoformat()
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "dayOfWeek": self.dayOfWeek,
+            "periodNumber": self.periodNumber,
+            "class": self.class_name,
+            "stream": self.stream,
+            "pathway": self.pathway,
+            "subject": self.subject,
+            "strand": self.strand,
+            "subStrand": self.subStrand,
+            "teacherId": self.teacherId,
+            "teacherName": self.teacherName,
+            "room": self.room,
+            "objectives": self.objectives,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
 # Multi-Agent Walker Implementations
 class LessonMaster:
     """
@@ -380,7 +554,390 @@ def health_check():
         "multi_agent_system": "loaded",
         "api_key": "configured" if GOOGLE_API_KEY else "missing"
     }
+# ============================================
+# TIMETABLE ENDPOINTS
+# ============================================
 
+@app.get("/api/timetable/entries")
+async def get_timetable_entries(
+    teacher_id: Optional[str] = None,
+    day: Optional[str] = None,
+    class_name: Optional[str] = None,
+    stream: Optional[str] = None
+):
+    try:
+        root = initialize_graph()
+        entries = list(root.timetable_entries.values())
+        
+        if teacher_id:
+            entries = [e for e in entries if e.teacherId == teacher_id]
+        if day:
+            entries = [e for e in entries if e.dayOfWeek == day]
+        if class_name:
+            entries = [e for e in entries if e.class_name == class_name]
+        if stream:
+            entries = [e for e in entries if e.stream == stream]
+        
+        return {
+            "success": True,
+            "entries": [e.to_dict() for e in entries],
+            "total": len(entries)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/timetable/entries")
+async def create_timetable_entry(request: Request):
+    try:
+        data = await request.json()
+        root = initialize_graph()
+        
+        entry_id = str(uuid.uuid4())
+        entry = TimetableEntry(
+            id=entry_id,
+            dayOfWeek=data["dayOfWeek"],
+            periodNumber=data["periodNumber"],
+            class_name=data.get("class"),
+            stream=data["stream"],
+            pathway=data["pathway"],
+            subject=data["subject"],
+            strand=data["strand"],
+            subStrand=data["subStrand"],
+            teacherId=data["teacherId"],
+            teacherName=data["teacherName"],
+            room=data["room"],
+            objectives=data.get("objectives", [])
+        )
+        
+        root.timetable_entries[entry_id] = entry
+        return {"success": True, "data": entry.to_dict()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.put("/api/timetable/entries/{entry_id}")
+async def update_timetable_entry(entry_id: str, request: Request):
+    try:
+        root = initialize_graph()
+        if entry_id not in root.timetable_entries:
+            return {"success": False, "error": "Entry not found"}
+        
+        data = await request.json()
+        entry = root.timetable_entries[entry_id]
+        
+        entry.dayOfWeek = data.get("dayOfWeek", entry.dayOfWeek)
+        entry.periodNumber = data.get("periodNumber", entry.periodNumber)
+        entry.class_name = data.get("class", entry.class_name)
+        entry.stream = data.get("stream", entry.stream)
+        entry.pathway = data.get("pathway", entry.pathway)
+        entry.subject = data.get("subject", entry.subject)
+        entry.strand = data.get("strand", entry.strand)
+        entry.subStrand = data.get("subStrand", entry.subStrand)
+        entry.room = data.get("room", entry.room)
+        entry.objectives = data.get("objectives", entry.objectives)
+        entry.updated_at = datetime.now().isoformat()
+        
+        return {"success": True, "data": entry.to_dict()}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.delete("/api/timetable/entries/{entry_id}")
+async def delete_timetable_entry(entry_id: str):
+    try:
+        root = initialize_graph()
+        if entry_id not in root.timetable_entries:
+            return {"success": False, "error": "Entry not found"}
+        
+        del root.timetable_entries[entry_id]
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/timetable/stats")
+async def get_timetable_stats(teacher_id: Optional[str] = None):
+    try:
+        root = initialize_graph()
+        entries = list(root.timetable_entries.values())
+        
+        if teacher_id:
+            entries = [e for e in entries if e.teacherId == teacher_id]
+        
+        stats = {
+            "total_lessons": len(entries),
+            "by_subject": {},
+            "by_day": {},
+            "by_pathway": {}
+        }
+        
+        for entry in entries:
+            stats["by_subject"][entry.subject] = stats["by_subject"].get(entry.subject, 0) + 1
+            stats["by_day"][entry.dayOfWeek] = stats["by_day"].get(entry.dayOfWeek, 0) + 1
+            stats["by_pathway"][entry.pathway] = stats["by_pathway"].get(entry.pathway, 0) + 1
+        
+        return {"success": True, "data": stats}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    # ============================================
+# STUDENT TRACKER ENDPOINTS
+# ============================================
+
+@app.post("/walker/get_all_students")
+async def get_all_students(request: Request):
+    """Get all students from the graph"""
+    try:
+        root = initialize_graph()
+        
+        # If no students exist, create demo students
+        if not root.students:
+            demo_students = [
+                Student("st_001", "John Kamau", "ADM001", "Grade 8", 95.0, 85.5),
+                Student("st_002", "Mary Wanjiru", "ADM002", "Grade 8", 88.0, 78.2),
+                Student("st_003", "Peter Ochieng", "ADM003", "Grade 8", 92.0, 88.7),
+                Student("st_004", "Grace Akinyi", "ADM004", "Grade 8", 85.0, 76.5),
+                Student("st_005", "David Kipchoge", "ADM005", "Grade 8", 90.0, 82.3),
+            ]
+            for student in demo_students:
+                root.students[student.id] = student
+        
+        students_list = [s.to_dict() for s in root.students.values()]
+        
+        return {
+            "success": True,
+            "data": students_list
+        }
+    except Exception as e:
+        print(f"Error getting students: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/get_class_insights")
+async def get_class_insights(request: Request):
+    """Get class-level insights"""
+    try:
+        root = initialize_graph()
+        
+        if root.students:
+            students_list = list(root.students.values())
+            total_students = len(students_list)
+            
+            avg_attendance = sum(s.attendanceRate for s in students_list) / total_students
+            avg_performance = sum(s.overallPerformance for s in students_list) / total_students
+            
+            # Top performers
+            top_performers = sorted(
+                students_list, 
+                key=lambda s: s.overallPerformance, 
+                reverse=True
+            )[:3]
+            
+            root.class_insights = {
+                "totalStudents": total_students,
+                "averageAttendance": round(avg_attendance, 2),
+                "averagePerformance": round(avg_performance, 2),
+                "weakCompetencies": ["Algebraic Reasoning", "Data Interpretation"],
+                "topPerformers": [
+                    {
+                        "name": s.name,
+                        "performance": s.overallPerformance
+                    } for s in top_performers
+                ]
+            }
+        
+        return {
+            "success": True,
+            "data": root.class_insights
+        }
+    except Exception as e:
+        print(f"Error getting insights: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/get_attendance_records")
+async def get_attendance_records(request: Request):
+    """Get all attendance records"""
+    try:
+        root = initialize_graph()
+        records = [r.to_dict() for r in root.attendance_records.values()]
+        
+        return {
+            "success": True,
+            "data": records
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/get_participation_records")
+async def get_participation_records(request: Request):
+    """Get all participation records"""
+    try:
+        root = initialize_graph()
+        records = [r.to_dict() for r in root.participation_records.values()]
+        
+        return {
+            "success": True,
+            "data": records
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/get_daily_summaries")
+async def get_daily_summaries(request: Request):
+    """Get all daily summaries"""
+    try:
+        root = initialize_graph()
+        summaries = [s.to_dict() for s in root.daily_summaries]
+        
+        return {
+            "success": True,
+            "data": summaries
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/record_attendance")
+async def record_attendance(request: Request):
+    """Record student attendance"""
+    try:
+        data = await request.json()
+        root = initialize_graph()
+        
+        attendance = AttendanceRecord(data)
+        root.attendance_records[attendance.id] = attendance
+        
+        return {
+            "success": True,
+            "data": attendance.to_dict()
+        }
+    except Exception as e:
+        print(f"Error recording attendance: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/save_daily_summary")
+async def save_daily_summary(request: Request):
+    """Save daily lesson summary for teacher appraisal"""
+    try:
+        data = await request.json()
+        root = initialize_graph()
+        
+        summary = DailySummary(data)
+        root.daily_summaries.append(summary)
+        
+        print(f"Daily summary saved: {summary.date} - {summary.subject}")
+        
+        return {
+            "success": True,
+            "data": summary.to_dict()
+        }
+    except Exception as e:
+        print(f"Error saving summary: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/walker/update_participation_records")
+async def update_participation_records(request: Request):
+    """Update participation records with lesson scores"""
+    try:
+        data = await request.json()
+        root = initialize_graph()
+        
+        updated_count = 0
+        for record_data in data:
+            record = ParticipationRecord(record_data)
+            root.participation_records[record.id] = record
+            updated_count += 1
+        
+        print(f"Updated {updated_count} participation records")
+        
+        return {
+            "success": True,
+            "data": {
+                "updated": updated_count
+            }
+        }
+    except Exception as e:
+        print(f"Error updating participation: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# ============================================
+# PEDAGOGICAL STRATEGY ENDPOINT
+# ============================================
+
+@app.post("/walker/generate_pedagogical_strategy")
+async def generate_pedagogical_strategy(request: Request):
+    """
+    Generate AI-powered pedagogical strategy using Gemini
+    This mirrors the functionality in geminiService.ts
+    """
+    try:
+        data = await request.json()
+        insights = data.get("insights", {})
+        students = data.get("students", [])
+        
+        # Use Gemini to generate strategy
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        prompt = f"""You are an expert pedagogical advisor for Kenyan CBC/CBE education.
+
+CLASS ANALYTICS:
+- Total Students: {insights.get('totalStudents', 0)}
+- Average Attendance: {insights.get('averageAttendance', 0)}%
+- Average Performance: {insights.get('averagePerformance', 0)}%
+- Weak Competencies: {', '.join(insights.get('weakCompetencies', []))}
+
+STUDENT DATA:
+{json.dumps(students, indent=2)}
+
+Based on this data, provide:
+1. Class-wide pedagogical recommendations
+2. Individualized intervention strategies for struggling students
+3. CBC-aligned teaching methods to address weak competencies
+4. Engagement strategies to improve attendance and participation
+5. Assessment approaches aligned with competency-based learning
+
+Provide actionable, specific strategies that a teacher can implement immediately.
+Keep recommendations practical and aligned with Kenyan CBC framework."""
+
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(temperature=0.7)
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "strategy": response.text
+            }
+        }
+    except Exception as e:
+        print(f"Error generating strategy: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e)
+        }
 # ============================================
 # JAC WALKER ENDPOINTS
 #
