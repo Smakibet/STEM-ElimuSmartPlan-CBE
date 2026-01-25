@@ -1,155 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { User, AppraisalSession } from '../../types';
 
-const JAC_API_BASE_URL = process.env.REACT_APP_JAC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-interface AppraisalSystemProps {
-  user: User;
-  mode?: 'teacher' | 'supervisor';
-}
+const JacClient = {
+  spawnWalker: async (walker, params) => {
+    try {
+      const response = await fetch(`${API_BASE}/walker/${walker}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(params)
+      });
 
-interface Standard {
-  id: number;
-  name: string;
-  description: string;
-  selfRating: number;
-  supervisorRating: number;
-  gapsIdentified: string;
-  evidence: string[];
-}
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = `Request failed: ${response.status}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson.detail || errorMsg;
+        } catch {
+          errorMsg = errorText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
 
-const AppraisalSystem: React.FC<AppraisalSystemProps> = ({ user, mode = 'teacher' }) => {
-  const [activeTab, setActiveTab] = useState<'standards' | 'deliverables' | 'tpd' | 'review'>('standards');
-  const [session, setSession] = useState<AppraisalSession | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [jacAvailable, setJacAvailable] = useState(false);
+      const result = await response.json();
 
-  const [currentStandardId, setCurrentStandardId] = useState<number>(1);
-  const [rating, setRating] = useState(0);
-  const [evidence, setEvidence] = useState('');
-  const [gaps, setGaps] = useState('');
+      // Handle different response formats from backend
+      if (Array.isArray(result)) return result;
+      if (result.success && result.data !== undefined) return result.data;
+      if (result.success) return result;
+      return result;
+    } catch (err) {
+      console.error(`API Error (${walker}):`, err);
+      throw err;
+    }
+  }
+};
 
-  const [supervisorRating, setSupervisorRating] = useState(0);
-  const [supervisorComment, setSupervisorComment] = useState('');
+const TPADAppraisalSystem = ({ user, userRole = 'teacher' }) => {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [selectedStandard, setSelectedStandard] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [currentRating, setCurrentRating] = useState(0);
+  const [currentEvidence, setCurrentEvidence] = useState('');
+
+  const defaultUser = user || {
+    id: 'teacher_001',
+    name: 'John Kamau',
+    tscNumber: 'TSC-123456',
+    email: 'jkamau@school.edu'
+  };
 
   useEffect(() => {
-    checkJacAvailability();
+    initializeTPAD();
+    const interval = setInterval(() => {
+      if (session && session.status === 'In-Progress') {
+        initializeTPAD(true);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (jacAvailable) {
-      initializeSession();
-    }
-  }, [user, jacAvailable]);
-
-  // Sync state when standard ID changes or session data updates
-  useEffect(() => {
-    if (session) {
-      const std = session.standards.find((s: Standard) => s.id === currentStandardId);
-      if (std) {
-        setRating(std.selfRating || 0);
-        setSupervisorRating(std.supervisorRating || 0);
-        setGaps(std.gapsIdentified || '');
-        setEvidence(std.evidence?.[0] || '');
-      }
-    }
-  }, [currentStandardId, session]);
-
-  const checkJacAvailability = async () => {
-    try {
-      const response = await fetch(`${JAC_API_BASE_URL}/health`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      setJacAvailable(response.ok);
-
-      if (!response.ok) {
-        setError('JAC server is not available. Please ensure the backend is running.');
-      }
-    } catch (error) {
-      console.warn('JAC server not available:', error);
-      setJacAvailable(false);
-      setError('Cannot connect to JAC server. Please check your backend connection.');
-    }
-  };
-
-  const initializeSession = async () => {
-    setLoading(true);
+  const initializeTPAD = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${JAC_API_BASE_URL}/walker/init_appraisal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          tsc_number: user.tscNumber,
-          name: user.name,
-          role: user.role
-        })
+      const data = await JacClient.spawnWalker('init_tpad_appraisal', {
+        userId: defaultUser.id,
+        tscNumber: defaultUser.tscNumber,
+        teacherName: defaultUser.name,
+        appraisalPeriod: '2026 - Term One',
+        role: userRole
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to initialize appraisal session: ${response.status}`);
+      if (data) {
+        setSession(data);
       }
-
-      const data = await response.json();
-
-      // Validate response structure
-      if (!data || !data.standards || !Array.isArray(data.standards)) {
-        throw new Error('Invalid appraisal session data received');
+    } catch (err) {
+      console.error('TPAD initialization error:', err);
+      if (!silent) {
+        setError(err.message || 'Failed to initialize TPAD session');
       }
-
-      setSession(data as AppraisalSession);
-      setSupervisorComment(data.supervisorComments || '');
-
-    } catch (err: any) {
-      console.error('Failed to initialize appraisal:', err);
-      setError(`Failed to load appraisal session: ${err.message}`);
-
-      // Create a mock session for demonstration if JAC fails
-      const mockSession: AppraisalSession = {
-        id: `session_${Date.now()}`,
-        userId: user.id,
-        status: 'Draft',
-        standards: Array.from({ length: 8 }, (_, i) => ({
-          id: i + 1,
-          name: `Professional Standard ${i + 1}`,
-          description: `Description for standard ${i + 1}. This standard covers key competencies required for effective teaching.`,
-          selfRating: 0,
-          supervisorRating: 0,
-          gapsIdentified: '',
-          evidence: []
-        })),
-        classDeliverables: {
-          lessonsTaught: 0,
-          lessonsPlanned: 0,
-          avgClassMastery: 0
-        },
-        supervisorComments: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      setSession(mockSession);
-      console.log('Using mock session for demonstration');
-
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const handleUpdateStandard = async () => {
-    if (!session) {
-      setError('No active session');
+  const handleSaveRating = async () => {
+    if (!session || !selectedStandard) return;
+
+    if (currentRating === 0) {
+      setError('Please select a rating (1-5)');
+      setTimeout(() => setError(null), 3000);
       return;
     }
 
-    if (!rating) {
-      setError('Please select a rating before saving');
+    if (!currentEvidence.trim()) {
+      setError('Please provide evidence for this rating');
+      setTimeout(() => setError(null), 3000);
       return;
     }
 
@@ -157,554 +114,443 @@ const AppraisalSystem: React.FC<AppraisalSystemProps> = ({ user, mode = 'teacher
     setError(null);
 
     try {
-      if (!jacAvailable) {
-        throw new Error('JAC server is not available');
-      }
-
-      const response = await fetch(`${JAC_API_BASE_URL}/walker/update_standard`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          session_id: session.id,
-          standard_id: currentStandardId,
-          rating: rating,
-          gaps: gaps,
-          evidence: evidence
-        })
+      const data = await JacClient.spawnWalker('update_tpad_standard', {
+        sessionId: session.id,
+        standardId: selectedStandard.id,
+        rating: currentRating,
+        evidence: currentEvidence,
+        role: userRole
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to update standard: ${response.status}`);
+      if (data) {
+        setSession(data);
+        setSuccess('✓ Rating saved successfully!');
+        setShowRatingModal(false);
+        setSelectedStandard(null);
+        setCurrentRating(0);
+        setCurrentEvidence('');
+        setTimeout(() => setSuccess(null), 3000);
       }
-
-      const updatedSession = await response.json();
-      setSession(updatedSession as AppraisalSession);
-
-      alert("✓ Self-appraisal saved successfully!");
-
-    } catch (err: any) {
-      console.error('Failed to update standard:', err);
-      setError(`Failed to save: ${err.message}`);
-
-      // Local update fallback
-      const updatedSession = { ...session };
-      const standardIndex = updatedSession.standards.findIndex((s: Standard) => s.id === currentStandardId);
-
-      if (standardIndex !== -1) {
-        updatedSession.standards[standardIndex] = {
-          ...updatedSession.standards[standardIndex],
-          selfRating: rating,
-          gapsIdentified: gaps,
-          evidence: [evidence]
-        };
-
-        setSession(updatedSession);
-        alert("⚠ Saved locally (JAC unavailable). Changes will be lost on refresh.");
-      }
-
+    } catch (err) {
+      console.error('Failed to save rating:', err);
+      setError('Failed to save rating: ' + err.message);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSupervisorSubmit = async () => {
-    if (!session) {
-      setError('No active session');
-      return;
-    }
-
-    if (!supervisorRating) {
-      setError('Please select a supervisor rating');
-      return;
-    }
-
-    setLoading(true);
+  const handleRunAI = async () => {
+    setIsAnalyzing(true);
     setError(null);
 
     try {
-      if (!jacAvailable) {
-        throw new Error('JAC server is not available');
-      }
-
-      const response = await fetch(`${JAC_API_BASE_URL}/walker/supervisor_review`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          session_id: session.id,
-          comments: supervisorComment,
-          reviews: [{
-            standard_id: currentStandardId,
-            rating: supervisorRating
-          }]
-        })
+      const data = await JacClient.spawnWalker('analyze_classroom_performance', {
+        sessionId: session.id,
+        userId: defaultUser.id
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to submit review: ${response.status}`);
+      if (data) {
+        setAiAnalysis(data);
+        setSuccess('✓ AI analysis completed!');
+        setTimeout(() => setSuccess(null), 3000);
       }
-
-      const updated = await response.json();
-      setSession(updated as AppraisalSession);
-
-      alert("✓ Supervisor review submitted successfully!");
-
-    } catch (err: any) {
-      console.error('Failed to submit review:', err);
-      setError(`Failed to submit review: ${err.message}`);
-
-      // Local update fallback
-      const updatedSession = { ...session };
-      const standardIndex = updatedSession.standards.findIndex((s: Standard) => s.id === currentStandardId);
-
-      if (standardIndex !== -1) {
-        updatedSession.standards[standardIndex] = {
-          ...updatedSession.standards[standardIndex],
-          supervisorRating: supervisorRating
-        };
-        updatedSession.supervisorComments = supervisorComment;
-
-        setSession(updatedSession);
-        alert("⚠ Saved locally (JAC unavailable). Changes will be lost on refresh.");
-      }
-
+    } catch (err) {
+      console.error('AI Analysis failed:', err);
+      setError('AI Analysis: ' + (err.message || 'Analysis unavailable'));
+      setTimeout(() => setError(null), 5000);
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
-  const handleFinalizeAppraisal = async () => {
+  const handleSubmitToSupervisor = async () => {
     if (!session) return;
 
-    const confirmation = window.confirm(
-      'Finalize this appraisal? This will submit it to TSC and cannot be undone.'
-    );
+    const incompleteStandards = session.standards.filter(s => !s.selfRating || s.selfRating === 0);
+    if (incompleteStandards.length > 0) {
+      setError(`Please complete ratings for all ${incompleteStandards.length} remaining standards`);
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
 
+    const confirmation = window.confirm(
+      'Are you sure you want to submit this appraisal to your supervisor? You cannot edit it after submission.'
+    );
     if (!confirmation) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      if (!jacAvailable) {
-        throw new Error('JAC server is not available');
-      }
-
-      const response = await fetch(`${JAC_API_BASE_URL}/walker/finalize_appraisal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          session_id: session.id
-        })
+      const data = await JacClient.spawnWalker('submit_tpad_to_supervisor', {
+        sessionId: session.id,
+        userId: defaultUser.id,
+        teacherName: defaultUser.name
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to finalize appraisal: ${response.status}`);
+      if (data) {
+        setSession(data);
+        setSuccess('✓ TPAD submitted to supervisor for review!');
+        setTimeout(() => setSuccess(null), 3000);
       }
-
-      const updated = await response.json();
-      setSession(updated as AppraisalSession);
-
-      alert("✓ Appraisal finalized and submitted to TSC!");
-
-    } catch (err: any) {
-      console.error('Failed to finalize:', err);
-      setError(`Failed to finalize: ${err.message}`);
-
-      // Local update fallback
-      const updatedSession = { ...session };
-      updatedSession.status = 'Finalized';
-      setSession(updatedSession);
-      alert("⚠ Status updated locally (JAC unavailable).");
-
+    } catch (err) {
+      console.error('Submission failed:', err);
+      setError('Submission failed: ' + err.message);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setLoading(false);
     }
   };
 
+  const getStatusColor = (status) => {
+    if (status === 'In-Progress') return 'bg-amber-100 text-amber-700 border-amber-300';
+    if (status === 'Submitted to Supervisor') return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (status === 'Completed') return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+    return 'bg-slate-100 text-slate-700 border-slate-300';
+  };
+
   if (loading && !session) {
     return (
-      <div className="p-12 text-center">
-        <div className="animate-spin w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
-          {jacAvailable ? 'Connecting to OSP Data Node...' : 'Loading Appraisal System...'}
-        </p>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="p-12 text-center">
-        <div className="text-rose-500 mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative w-20 h-20 mx-auto mb-8">
+            <div className="absolute inset-0 border-4 border-indigo-200 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="font-black text-slate-800 text-xl mb-2">Initializing TPAD Session</p>
+          <p className="text-slate-500">Connecting to {API_BASE}</p>
         </div>
-        <p className="text-slate-700 font-bold mb-2">Failed to Load Appraisal Session</p>
-        <p className="text-slate-500 text-sm mb-4">{error || 'Unknown error occurred'}</p>
-        <button
-          onClick={initializeSession}
-          className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all"
-        >
-          Retry Connection
-        </button>
       </div>
     );
   }
 
-  const currentStandard = session.standards.find((s: Standard) => s.id === currentStandardId);
-  const isEditable = mode === 'teacher' && (session.status === 'Draft' || session.status === 'Submitted');
+  if (error && !session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 flex items-center justify-center p-6">
+        <div className="bg-white p-10 rounded-[40px] shadow-xl text-center max-w-md">
+          <svg className="w-20 h-20 text-rose-500 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 className="text-2xl font-black text-rose-600 mb-4">Connection Error</h2>
+          <p className="text-slate-600 mb-2 text-sm">{error}</p>
+          <p className="text-xs text-slate-400 mb-6 font-mono bg-slate-50 p-3 rounded-xl break-all">
+            {API_BASE}
+          </p>
+          <button
+            onClick={() => initializeTPAD()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-2xl font-bold transition-all w-full"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return null;
+
+  const completed = session.standards?.filter(s => s.selfRating > 0).length || 0;
+  const total = session.standards?.length || 0;
+  const progress = Math.round((completed / (total || 1)) * 100);
 
   return (
-    <div className="h-full flex flex-col space-y-6 max-w-6xl mx-auto pb-10 px-2 overflow-y-auto custom-scrollbar">
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-xl">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p className="text-rose-900 font-bold text-sm">{error}</p>
-              <button
-                onClick={() => setError(null)}
-                className="text-rose-600 text-xs underline mt-1"
-              >
-                Dismiss
-              </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/30 overflow-y-auto">
+      <div className="max-w-7xl mx-auto p-6 space-y-6 pb-20">
+
+        {success && (
+          <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-6 py-5 rounded-3xl flex items-center justify-between shadow-lg animate-slideDown">
+            <div className="flex items-center gap-4">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-bold">{success}</span>
+            </div>
+            <button onClick={() => setSuccess(null)}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-rose-50 border-2 border-rose-300 text-rose-900 px-6 py-5 rounded-3xl flex items-center justify-between shadow-lg animate-slideDown">
+            <div className="flex items-center gap-4">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="font-bold text-sm">{error}</span>
+            </div>
+            <button onClick={() => setError(null)}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 rounded-[40px] p-10 text-white shadow-2xl">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex-1">
+              <div className="inline-block px-4 py-1.5 bg-white/10 backdrop-blur rounded-full text-xs font-black uppercase mb-4">
+                TPAD System Live
+              </div>
+              <h1 className="text-5xl font-black mb-2">Teacher Performance Appraisal</h1>
+              <p className="text-indigo-200 text-lg font-medium">{session.teacherName} • {session.appraisalPeriod}</p>
+              <p className="text-indigo-300 text-sm mt-2">TSC: {session.tscNumber}</p>
+            </div>
+            <div className="flex items-center gap-8">
+              <div className="text-center">
+                <p className="text-xs font-black text-indigo-300 uppercase mb-2">Status</p>
+                <div className={`px-6 py-2 rounded-full border-2 font-black text-sm ${getStatusColor(session.status)}`}>
+                  {session.status}
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-black text-indigo-300 uppercase mb-2">Progress</p>
+                <p className="text-5xl font-black">{progress}%</p>
+                <p className="text-sm text-indigo-300 mt-1">{completed}/{total} Standards</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6 shrink-0">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-600 flex items-center justify-center text-white shadow-2xl shadow-emerald-600/30">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04M12 21.48l1.307-1.307a10.5 10.5 0 01-7.314-14.48L12 4.384l5.314 1.307a10.5 10.5 0 01-7.314 14.48L12 21.48z" />
-            </svg>
+        <div className="bg-slate-950 rounded-[40px] border-2 border-slate-800 overflow-hidden shadow-2xl">
+          <div className="p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="flex-1">
+              <h3 className="text-2xl font-black text-white mb-2">AI Classroom Analytics</h3>
+              <p className="text-slate-400">Real-time pedagogical insights powered by Google Gemini</p>
+            </div>
+            <button
+              onClick={handleRunAI}
+              disabled={isAnalyzing}
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-8 py-4 rounded-2xl font-black uppercase text-sm shadow-xl transition-all transform hover:scale-105 disabled:opacity-50"
+            >
+              {isAnalyzing ? (
+                <span className="flex items-center gap-3">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Analyzing...
+                </span>
+              ) : (
+                '🚀 Generate AI Insights'
+              )}
+            </button>
           </div>
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">
-              {mode === 'supervisor' ? `Review Node: ${user.name}` : 'TPAD Performance Appraisal'}
-            </h2>
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">
-              Status: <span className={`${session.status === 'Finalized' ? 'text-emerald-600' : session.status === 'Draft' ? 'text-amber-600' : 'text-indigo-600'}`}>{session.status}</span> • TSC-ID: {user.tscNumber || '---'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {mode === 'supervisor' && (
-            <div className="bg-amber-100 text-amber-700 px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-amber-200">
-              Supervisory Logic Active
+
+          {aiAnalysis && (
+            <div className="px-10 pb-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white/5 backdrop-blur p-8 rounded-3xl border-2 border-white/10">
+                <p className="text-emerald-400 text-xs font-black uppercase mb-3">Class Score</p>
+                <p className="text-5xl font-black text-white mb-2">{aiAnalysis.overallScore}%</p>
+                <p className="text-slate-400 text-sm">Average Performance</p>
+              </div>
+              <div className="bg-white/5 backdrop-blur p-8 rounded-3xl border-2 border-white/10">
+                <p className="text-blue-400 text-xs font-black uppercase mb-3">Engagement</p>
+                <p className="text-5xl font-black text-white mb-2">{aiAnalysis.engagementScore}/10</p>
+                <p className="text-slate-400 text-sm">Student Participation</p>
+              </div>
+              <div className="bg-white/5 backdrop-blur p-8 rounded-3xl border-2 border-white/10">
+                <p className="text-rose-400 text-xs font-black uppercase mb-3">At Risk</p>
+                <p className="text-5xl font-black text-white mb-2">{aiAnalysis.atRiskCount}</p>
+                <p className="text-slate-400 text-sm">Learners Need Support</p>
+              </div>
             </div>
           )}
-          <div className={`px-4 py-2 rounded-full border flex items-center gap-2 ${jacAvailable ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-            <div className={`w-2 h-2 rounded-full ${jacAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-            <span className={`text-xs font-bold ${jacAvailable ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {jacAvailable ? 'JAC Connected' : 'Local Mode'}
-            </span>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-8 min-h-0">
-        {/* Sidebar Navigation */}
-        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 h-fit space-y-3 shrink-0">
-          {[
-            { id: 'standards', label: 'Standards' },
-            { id: 'deliverables', label: 'Evidence' },
-            { id: 'tpd', label: 'TPD Plan' },
-            { id: 'review', label: 'TSC Return' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`w-full text-left px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id
-                ? 'bg-slate-900 text-white shadow-xl translate-x-2'
-                : 'text-slate-400 hover:bg-slate-50'
-                }`}
-            >
-              {tab.label}
-            </button>
+          {!aiAnalysis && (
+            <div className="px-10 pb-10">
+              <div className="bg-white/5 backdrop-blur p-8 rounded-3xl border-2 border-white/10 text-center">
+                <svg className="w-16 h-16 mx-auto mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <p className="text-white font-bold mb-2">No AI Analysis Yet</p>
+                <p className="text-slate-400 text-sm">Click "Generate AI Insights" to analyze your teaching performance</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-6">
+          {session.standards && session.standards.map((std, index) => (
+            <div key={std.id} className="bg-white p-8 rounded-[32px] shadow-lg border-2 border-slate-200 hover:border-indigo-300 transition-all">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex items-start gap-6 flex-1">
+                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-xl">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xl font-black text-slate-900 mb-2">{std.name}</h4>
+                    <p className="text-slate-600 leading-relaxed mb-3">{std.description}</p>
+                    {std.evidence && std.evidence.length > 0 && (
+                      <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-4">
+                        <p className="text-xs font-black text-indigo-600 uppercase mb-2">Evidence:</p>
+                        <p className="text-sm text-slate-700 italic">"{std.evidence[0]}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="text-center">
+                    <p className="text-xs font-black text-slate-400 uppercase mb-2">Self Rating</p>
+                    <p className="text-5xl font-black text-indigo-600">
+                      {std.selfRating || 0}
+                      <span className="text-xl text-slate-300">/5</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedStandard(std);
+                      setCurrentRating(std.selfRating || 0);
+                      setCurrentEvidence(std.evidence?.[0] || '');
+                      setShowRatingModal(true);
+                    }}
+                    disabled={session.status === 'Submitted to Supervisor'}
+                    className="bg-gradient-to-r from-slate-100 to-slate-200 hover:from-indigo-600 hover:to-indigo-700 hover:text-white text-slate-700 px-8 py-4 rounded-2xl font-black uppercase text-sm transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {std.selfRating > 0 ? 'Update' : 'Rate'}
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
 
-        {/* Content Area */}
-        <div className="lg:col-span-3 bg-white p-10 rounded-[40px] shadow-sm border border-slate-100 flex flex-col min-h-[550px]">
-          {activeTab === 'standards' && currentStandard && (
-            <div className="animate-fade-in space-y-10">
-              {/* Standards Navigation */}
-              <div className="flex space-x-3 overflow-x-auto pb-6 scrollbar-hide">
-                {session.standards.map((s: Standard) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setCurrentStandardId(s.id)}
-                    className={`whitespace-nowrap px-6 py-2 rounded-2xl text-[10px] font-black uppercase border transition-all relative ${currentStandardId === s.id
-                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-lg'
-                      : 'bg-white text-slate-300 border-slate-100'
-                      }`}
-                  >
-                    Std {s.id}
-                    {s.supervisorRating > 0 && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-sm"></span>
-                    )}
-                  </button>
-                ))}
+        {session.status === 'In-Progress' && completed === total && (
+          <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 border-2 border-emerald-300 rounded-[40px] p-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-emerald-900 mb-1">All Standards Completed!</h3>
+                  <p className="text-emerald-700 font-medium">Ready to submit for supervisor review</p>
+                </div>
+              </div>
+              <button
+                onClick={handleSubmitToSupervisor}
+                disabled={loading}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-12 py-5 rounded-2xl font-black uppercase text-sm shadow-2xl transition-all transform hover:scale-105 disabled:opacity-50"
+              >
+                {loading ? 'Submitting...' : 'Submit to Supervisor'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showRatingModal && selectedStandard && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50 overflow-y-auto">
+            <div className="bg-white rounded-[40px] p-10 max-w-3xl w-full shadow-2xl my-6">
+              <div className="mb-8">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl">
+                    {session.standards.indexOf(selectedStandard) + 1}
+                  </div>
+                  <h2 className="text-3xl font-black text-slate-900">{selectedStandard.name}</h2>
+                </div>
+                <p className="text-slate-600 leading-relaxed">{selectedStandard.description}</p>
               </div>
 
-              {/* Standard Description */}
-              <div className="border-l-8 border-indigo-600 pl-8">
-                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">{currentStandard.name}</h3>
-                <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-2xl">{currentStandard.description}</p>
-              </div>
-
-              {/* Rating Panels */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                {/* Teacher Self-Rating */}
-                <div className="space-y-8 p-8 rounded-[32px] bg-slate-50/50 border border-slate-100">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-3">Teacher Self-Rating</h4>
-                  <div className="flex gap-3">
-                    {[1, 2, 3, 4, 5].map(r => (
-                      <button
-                        key={r}
-                        disabled={!isEditable || loading}
-                        onClick={() => setRating(r)}
-                        className={`w-12 h-12 rounded-2xl font-black text-lg transition-all ${rating === r
-                          ? 'bg-slate-900 text-white shadow-2xl scale-110'
-                          : 'bg-white text-slate-200 border border-slate-100 hover:border-slate-300'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Evidence / Artifacts</label>
-                      <textarea
-                        value={evidence}
-                        onChange={e => setEvidence(e.target.value)}
-                        disabled={!isEditable || loading}
-                        className="w-full border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-emerald-500/10 outline-none h-24 resize-none bg-white disabled:opacity-50"
-                        placeholder="Paste a link to your lesson plan artifact or describe delivery evidence..."
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Identified Gaps / Challenges</label>
-                      <textarea
-                        value={gaps}
-                        onChange={e => setGaps(e.target.value)}
-                        disabled={!isEditable || loading}
-                        className="w-full border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-4 focus:ring-emerald-500/10 outline-none h-24 resize-none bg-white disabled:opacity-50"
-                        placeholder="What challenges did you face in meeting this standard?"
-                      />
-                    </div>
-                  </div>
-
-                  {isEditable && (
+              <div className="mb-8">
+                <label className="block text-sm font-black text-slate-700 uppercase mb-4">
+                  Select Your Self-Assessment Rating
+                </label>
+                <div className="grid grid-cols-5 gap-3">
+                  {[1, 2, 3, 4, 5].map(num => (
                     <button
-                      onClick={handleUpdateStandard}
-                      disabled={loading}
-                      className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+                      key={num}
+                      type="button"
+                      onClick={() => setCurrentRating(num)}
+                      className={`py-6 rounded-2xl font-black text-3xl transition-all transform hover:scale-105 ${currentRating === num
+                          ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-2xl'
+                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                        }`}
                     >
-                      {loading ? 'Saving...' : 'Save Self-Appraisal'}
+                      {num}
+                      <span className="block text-xs font-bold uppercase mt-2">
+                        {num === 1 ? 'Poor' : num === 2 ? 'Fair' : num === 3 ? 'Good' : num === 4 ? 'V.Good' : 'Excellent'}
+                      </span>
                     </button>
-                  )}
+                  ))}
                 </div>
+              </div>
 
-                {/* Supervisor Rating */}
-                <div className={`space-y-8 p-8 rounded-[32px] border ${mode === 'supervisor' ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50/30 border-indigo-100'
-                  }`}>
-                  <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-indigo-200 pb-3">Supervisor Decision Node</h4>
-                  {mode === 'supervisor' ? (
-                    <div className="space-y-8">
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Teacher's Evidence</p>
-                          <p className="text-sm font-bold text-slate-700 bg-white/50 p-4 rounded-xl border border-slate-200/50 italic">
-                            "{evidence || 'No evidence provided.'}"
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Teacher's Gaps</p>
-                          <p className="text-sm font-bold text-slate-700 bg-white/50 p-4 rounded-xl border border-slate-200/50 italic">
-                            "{gaps || 'No gaps identified.'}"
-                          </p>
-                        </div>
-                      </div>
+              <div className="mb-8">
+                <label className="block text-sm font-black text-slate-700 uppercase mb-4">
+                  Provide Evidence (Required)
+                </label>
+                <textarea
+                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-3xl p-6 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all resize-none"
+                  placeholder="Describe specific examples, achievements, or activities that demonstrate your competency in this standard..."
+                  rows="6"
+                  value={currentEvidence}
+                  onChange={(e) => setCurrentEvidence(e.target.value)}
+                  required
+                />
+              </div>
 
-                      <div className="flex gap-3">
-                        {[1, 2, 3, 4, 5].map(r => (
-                          <button
-                            key={r}
-                            onClick={() => setSupervisorRating(r)}
-                            disabled={loading}
-                            className={`w-12 h-12 rounded-2xl font-black text-lg transition-all ${supervisorRating === r
-                              ? 'bg-amber-600 text-white shadow-2xl scale-110'
-                              : 'bg-white text-amber-200 border border-amber-100 hover:border-amber-300'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            {r}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        onClick={handleSupervisorSubmit}
-                        disabled={loading}
-                        className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? 'Saving...' : 'Commit Decision to Graph'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-10 opacity-30 grayscale">
-                      {currentStandard.supervisorRating ? (
-                        <div className="text-center">
-                          <span className="text-4xl font-black text-indigo-900">{currentStandard.supervisorRating}</span>
-                          <p className="text-[10px] font-black uppercase tracking-widest mt-2 text-emerald-600">Validated Rating</p>
-                        </div>
-                      ) : (
-                        <>
-                          <svg className="w-12 h-12 text-indigo-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
-                          <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Validation</p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRatingModal(false);
+                    setSelectedStandard(null);
+                    setCurrentRating(0);
+                    setCurrentEvidence('');
+                  }}
+                  className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRating}
+                  disabled={loading || currentRating === 0 || !currentEvidence.trim()}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-4 rounded-2xl font-black shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Saving...' : 'Save Rating'}
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === 'deliverables' && session.classDeliverables && (
-            <div className="space-y-10 animate-fade-in h-full flex flex-col">
-              <div>
-                <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Evidence Nodes</h3>
-                <p className="text-slate-400 text-sm font-medium italic">Performance Metrics from Teacher Interactions</p>
-              </div>
+        <style>{`
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-emerald-50 p-10 rounded-[40px] border border-emerald-100 relative overflow-hidden">
-                  <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-emerald-100 rounded-full opacity-40"></div>
-                  <span className="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Completion Logic</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-7xl font-black text-emerald-900 tracking-tighter">{session.classDeliverables.lessonsTaught}</span>
-                    <span className="text-emerald-600 font-black text-lg">/ {session.classDeliverables.lessonsPlanned}</span>
-                  </div>
-                </div>
-                <div className="bg-indigo-50 p-10 rounded-[40px] border border-indigo-100 relative overflow-hidden">
-                  <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-indigo-100 rounded-full opacity-40"></div>
-                  <span className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Mastery Traversal</span>
-                  <span className="text-7xl font-black text-indigo-900 tracking-tighter">{session.classDeliverables.avgClassMastery}%</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'tpd' && (
-            <div className="space-y-8 animate-fade-in flex flex-col h-full">
-              <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Teacher Professional Development Plan</h3>
-              <div className="flex-1 bg-slate-50 rounded-3xl p-8 border border-slate-200">
-                <p className="text-slate-500 text-sm italic">
-                  TPD planning features will be integrated with your appraisal results to recommend targeted professional development opportunities.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'review' && (
-            <div className="space-y-8 animate-fade-in flex flex-col h-full">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">TSC Return Summary</h3>
-                {mode === 'teacher' && session.status === 'Draft' && (
-                  <button
-                    onClick={handleFinalizeAppraisal}
-                    disabled={loading}
-                    className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-700 shadow-xl transition-all disabled:opacity-50"
-                  >
-                    {loading ? 'Finalizing...' : 'Finalize & Submit'}
-                  </button>
-                )}
-              </div>
-
-              <div className={`flex-1 p-10 rounded-[40px] shadow-2xl relative overflow-hidden flex flex-col ${mode === 'supervisor' ? 'bg-indigo-900 text-indigo-50' : 'bg-slate-900 text-white'
-                }`}>
-                <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-[100px] -mr-40 -mt-40"></div>
-                <div className="relative z-10 space-y-8">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Supervisor Verdict Reasoning</span>
-                  {mode === 'supervisor' ? (
-                    <div className="space-y-8">
-                      <textarea
-                        value={supervisorComment}
-                        onChange={e => setSupervisorComment(e.target.value)}
-                        disabled={loading}
-                        placeholder="Enter justifying reasoning for merit-based appraisal..."
-                        className="w-full bg-white/10 border border-white/10 rounded-3xl p-8 text-white text-xl font-medium outline-none focus:ring-4 focus:ring-emerald-500/50 transition-all min-h-[250px] placeholder:text-white/20 disabled:opacity-50"
-                      />
-                      <button
-                        onClick={handleSupervisorSubmit}
-                        disabled={loading}
-                        className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 px-12 py-5 rounded-[24px] font-black uppercase text-xs tracking-widest transition-all shadow-2xl shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {loading ? 'Saving...' : 'Commit TSC Return'}
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-2xl leading-relaxed italic font-medium opacity-90">
-                      "{session.supervisorComments || 'Appraisal pending supervisory validation node.'}"
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          .animate-slideDown {
+            animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+        `}</style>
       </div>
-
-      <style>{`
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.05);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 0, 0, 0.3);
-        }
-      `}</style>
     </div>
   );
 };
 
-export default AppraisalSystem;
+const App = () => {
+  const mockUser = {
+    id: 'teacher_001',
+    name: 'John Kamau',
+    tscNumber: 'TSC-123456',
+    email: 'jkamau@school.edu'
+  };
+
+  return <TPADAppraisalSystem user={mockUser} userRole="teacher" />;
+};
+
+export default App;

@@ -1,100 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { JacClient } from '../../services/jacService';
-import { User, UserRole, Student } from '../../types';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+interface User {
+    id: string;
+    role: 'admin' | 'supervisor' | 'teacher';
+    name: string;
+    email: string;
+    tscNumber?: string;
+}
+
+interface Student {
+    id: string;
+    name: string;
+    admissionNumber: string;
+    grade: string;
+    subjects: string[];
+    overallPerformance: number;
+    attendanceRate: number;
+    skills: string[];
+    recentActivity: string[];
+}
+
+interface SystemConfig {
+    schoolName: string;
+    currentTerm: string;
+    academicYear: string;
+    gradingScale: string;
+}
+
+const JacClient = {
+    spawnWalker: async (walkerName: string, params: any) => {
+        try {
+            const response = await fetch(`${API_BASE}/walker/${walkerName}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Backend request failed');
+            }
+            const result = await response.json();
+            if (Array.isArray(result)) return result;
+            if (result.success && result.data !== undefined) return result.data;
+            return result;
+        } catch (error) {
+            console.error(`JacClient Error (${walkerName}):`, error);
+            throw error;
+        }
+    }
+};
 
 const AdminPanel: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'staff' | 'students'>('staff');
+    const [activeTab, setActiveTab] = useState<'staff' | 'students' | 'system'>('staff');
     const [users, setUsers] = useState<User[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
+    const [config, setConfig] = useState<SystemConfig>({
+        schoolName: 'SMACQX STEM Academy',
+        currentTerm: 'Term 1',
+        academicYear: '2026',
+        gradingScale: 'Standard'
+    });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
     const [showUserModal, setShowUserModal] = useState(false);
     const [showStudentModal, setShowStudentModal] = useState(false);
 
     const [userForm, setUserForm] = useState<Partial<User>>({ role: 'teacher' });
-    const [studentForm, setStudentForm] = useState<Partial<Student>>({ grade: 'Grade 7', subjects: [] });
+    const [studentForm, setStudentForm] = useState<Partial<Student>>({
+        grade: 'Grade 7',
+        subjects: [],
+        overallPerformance: 0,
+        attendanceRate: 100,
+        skills: [],
+        recentActivity: []
+    });
+
+    const [systemStats, setSystemStats] = useState({
+        totalStaff: 0,
+        totalStudents: 0,
+        activeTPAD: 0,
+        pendingApprovals: 0
+    });
 
     useEffect(() => {
         loadData();
+        const interval = setInterval(() => loadData(true), 10000);
+        return () => clearInterval(interval);
     }, []);
 
-    const loadData = async () => {
-        setLoading(true);
-        setError(null);
+    const loadData = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
-            // Load users from backend
-            const userData = await JacClient.spawnWalker('get_all_users', {}, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
+            const [userData, studentData, configData] = await Promise.all([
+                JacClient.spawnWalker('get_all_users', { userId: 'admin_default' }),
+                JacClient.spawnWalker('get_all_students', { userId: 'admin_default' }),
+                JacClient.spawnWalker('get_config', {})
+            ]);
+
+            if (userData && Array.isArray(userData)) setUsers(userData);
+            if (studentData && Array.isArray(studentData)) setStudents(studentData);
+            if (configData && !Array.isArray(configData)) setConfig(configData);
+
+            setSystemStats({
+                totalStaff: userData?.length || 0,
+                totalStudents: studentData?.length || 0,
+                activeTPAD: 0,
+                pendingApprovals: 0
             });
-
-            if (userData && Array.isArray(userData)) {
-                setUsers(userData as User[]);
-            } else {
-                console.warn('Unexpected user data format:', userData);
-                setUsers([]);
-            }
-
-            // Load students from backend
-            const studentData = await JacClient.spawnWalker('get_all_students', {}, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
-            });
-
-            if (studentData && Array.isArray(studentData)) {
-                setStudents(studentData as Student[]);
-            } else {
-                console.warn('Unexpected student data format:', studentData);
-                setStudents([]);
-            }
-        } catch (error) {
-            console.error("Failed to load data:", error);
-            setError("Failed to load data from server. Please check your connection.");
+        } catch (err: any) {
+            if (!silent) setError(`Connection Error: ${err.message}`);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Validation
-        if (!userForm.name || !userForm.email) {
-            alert("Please fill in all required fields");
-            return;
-        }
-
         setLoading(true);
-        setError(null);
         try {
             const updated = await JacClient.spawnWalker('manage_user', {
                 action: 'create',
-                userData: {
-                    ...userForm,
-                    id: `user_${Date.now()}`, // Generate temporary ID
-                }
-            }, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
+                userData: { id: `user_${Date.now()}`, ...userForm }
             });
-
-            if (updated && Array.isArray(updated)) {
-                setUsers(updated as User[]);
-                setShowUserModal(false);
-                setUserForm({ role: 'teacher' });
-            } else {
-                throw new Error('Invalid response from server');
-            }
-        } catch (error) {
-            console.error("Failed to add user:", error);
-            setError("Failed to register staff member. Please try again.");
+            if (Array.isArray(updated)) setUsers(updated);
+            setShowUserModal(false);
+            setUserForm({ role: 'teacher' });
+            setSuccess('✓ Staff member registered successfully!');
+        } catch (err: any) {
+            setError(err.message);
         } finally {
             setLoading(false);
         }
@@ -102,442 +140,255 @@ const AdminPanel: React.FC = () => {
 
     const handleAddStudent = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Validation
-        if (!studentForm.name || !studentForm.admissionNumber) {
-            alert("Please fill in all required fields");
-            return;
-        }
-
-        if (!studentForm.subjects || studentForm.subjects.length === 0) {
-            alert("Please allocate at least one lesson/subject.");
-            return;
-        }
-
         setLoading(true);
-        setError(null);
         try {
             const updated = await JacClient.spawnWalker('manage_student', {
                 action: 'add',
-                studentData: {
-                    ...studentForm,
-                    id: `student_${Date.now()}`, // Generate temporary ID
-                    overallPerformance: 0,
-                    attendanceRate: 100,
-                    skills: [],
-                    recentActivity: []
-                }
-            }, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
+                studentData: { id: `student_${Date.now()}`, ...studentForm }
             });
-
-            if (updated && Array.isArray(updated)) {
-                setStudents(updated as Student[]);
-                setShowStudentModal(false);
-                setStudentForm({ grade: 'Grade 7', subjects: [] });
-            } else {
-                throw new Error('Invalid response from server');
-            }
-        } catch (error) {
-            console.error("Failed to add student:", error);
-            setError("Failed to enroll student. Please try again.");
+            if (Array.isArray(updated)) setStudents(updated);
+            setShowStudentModal(false);
+            setStudentForm({ grade: 'Grade', subjects: [], overallPerformance: 0, attendanceRate: 100 });
+            setSuccess('✓ Student enrolled successfully!');
+        } catch (err: any) {
+            setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm("Are you sure you want to delete this staff member?")) {
-            return;
-        }
-
+        if (!confirm("Are you sure?")) return;
         setLoading(true);
-        setError(null);
         try {
-            const updated = await JacClient.spawnWalker('manage_user', {
-                action: 'delete',
-                userId
-            }, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
-            });
-
-            if (updated && Array.isArray(updated)) {
-                setUsers(updated as User[]);
-            } else {
-                throw new Error('Invalid response from server');
-            }
-        } catch (error) {
-            console.error("Failed to delete user:", error);
-            setError("Failed to delete staff member. Please try again.");
-        } finally {
-            setLoading(false);
-        }
+            const updated = await JacClient.spawnWalker('manage_user', { action: 'delete', userId });
+            if (Array.isArray(updated)) setUsers(updated);
+            setSuccess('✓ Staff deleted successfully!');
+        } catch (err: any) { setError(err.message); } finally { setLoading(false); }
     };
 
     const handleDeleteStudent = async (studentId: string) => {
-        if (!confirm("Are you sure you want to delete this student?")) {
-            return;
-        }
-
+        if (!confirm("Are you sure?")) return;
         setLoading(true);
-        setError(null);
         try {
-            const updated = await JacClient.spawnWalker('manage_student', {
-                action: 'delete',
-                studentId
-            }, {
-                id: 'admin',
-                role: 'admin',
-                name: 'Admin',
-                email: 'admin@smacqx.ke'
-            });
+            const updated = await JacClient.spawnWalker('manage_student', { action: 'delete', studentId });
+            if (Array.isArray(updated)) setStudents(updated);
+            setSuccess('✓ Student removed successfully!');
+        } catch (err: any) { setError(err.message); } finally { setLoading(false); }
+    };
 
-            if (updated && Array.isArray(updated)) {
-                setStudents(updated as Student[]);
-            } else {
-                throw new Error('Invalid response from server');
-            }
-        } catch (error) {
-            console.error("Failed to delete student:", error);
-            setError("Failed to delete student. Please try again.");
-        } finally {
-            setLoading(false);
-        }
+    const handleSaveConfig = async () => {
+        setLoading(true);
+        try {
+            await JacClient.spawnWalker('update_config', { config });
+            setSuccess('✓ System settings updated globally');
+        } catch (err: any) { setError(err.message); } finally { setLoading(false); }
     };
 
     const toggleSubject = (subject: string) => {
         const current = studentForm.subjects || [];
-        if (current.includes(subject)) {
-            setStudentForm({ ...studentForm, subjects: current.filter(s => s !== subject) });
-        } else {
-            setStudentForm({ ...studentForm, subjects: [...current, subject] });
-        }
+        setStudentForm({
+            ...studentForm,
+            subjects: current.includes(subject) ? current.filter(s => s !== subject) : [...current, subject]
+        });
     };
 
-    return (
-        <div className="h-full flex flex-col space-y-6 overflow-y-auto pb-10">
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl flex items-center justify-between">
-                    <span className="text-sm font-medium">{error}</span>
-                    <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-            )}
+    const availableSubjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English', 'Kiswahili', 'Geography', 'Business Studies', 'Agriculture', 'Integrated Science'];
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">System Administration</h2>
-                    <p className="text-slate-500 font-medium font-sans">Institutional control & learner registry - SMACQX STEM ElimuSmartPlan</p>
+    return (
+        <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-slate-50 via-indigo-50/20 to-slate-100">
+            <div className="max-w-7xl mx-auto p-6 space-y-6 pb-20">
+
+                {/* Status Alerts */}
+                <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-lg border-2 border-emerald-200 w-fit">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-black text-slate-700 uppercase">Live • Auto-sync every 10 sec</span>
                 </div>
-                <div className="flex p-1 bg-slate-100 rounded-2xl">
-                    <button
-                        onClick={() => setActiveTab('staff')}
-                        className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'staff' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Staff
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('students')}
-                        className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Students
-                    </button>
+
+                {success && (
+                    <div className="bg-emerald-50 border-2 border-emerald-300 text-emerald-900 px-6 py-5 rounded-3xl flex items-center justify-between shadow-lg">
+                        <span className="font-bold">{success}</span>
+                        <button onClick={() => setSuccess(null)}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                )}
+
+                {/* Header */}
+                <div className="bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 rounded-[40px] p-10 text-white shadow-2xl">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                        <div className="flex-1">
+                            <div className="inline-block px-4 py-1.5 bg-white/10 backdrop-blur rounded-full text-xs font-black uppercase tracking-wider mb-4">System Administration</div>
+                            <h1 className="text-5xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-200">Administrative Control Panel</h1>
+                            <p className="text-indigo-200 text-lg font-medium">{config.schoolName} Solutions</p>
+                        </div>
+                        <button onClick={() => loadData()} disabled={loading} className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur rounded-2xl font-bold transition-all flex items-center gap-2">
+                            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            {loading ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-3xl p-8 border-2 border-indigo-200">
+                        <p className="text-xs font-black text-indigo-600 uppercase mb-2">Total Staff</p>
+                        <p className="text-5xl font-black text-indigo-900">{systemStats.totalStaff}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-3xl p-8 border-2 border-emerald-200">
+                        <p className="text-xs font-black text-emerald-600 uppercase mb-2">Total Students</p>
+                        <p className="text-5xl font-black text-emerald-900">{systemStats.totalStudents}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-3xl p-8 border-2 border-amber-200">
+                        <p className="text-xs font-black text-amber-600 uppercase mb-2">Active TPAD</p>
+                        <p className="text-5xl font-black text-amber-900">{systemStats.activeTPAD}</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-3xl p-8 border-2 border-purple-200">
+                        <p className="text-xs font-black text-purple-600 uppercase mb-2">Pending</p>
+                        <p className="text-5xl font-black text-purple-900">{systemStats.pendingApprovals}</p>
+                    </div>
+                </div>
+
+                {/* Tabs and Main Content */}
+                <div className="bg-white rounded-[40px] shadow-xl border-2 border-slate-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 border-b-2 border-slate-200 p-6">
+                        <div className="flex gap-3 overflow-x-auto">
+                            {[{ key: 'staff', icon: '👥', label: 'Staff Registry' }, { key: 'students', icon: '🎓', label: 'Student Registry' }, { key: 'system', icon: '⚙️', label: 'System Settings' }].map((tab) => (
+                                <button key={tab.key} onClick={() => setActiveTab(tab.key as any)} className={`px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-wider transition-all ${activeTab === tab.key ? 'bg-indigo-600 text-white shadow-xl transform scale-105' : 'bg-white text-slate-600 border-2 border-slate-200 hover:border-indigo-300'}`}>
+                                    {tab.icon} {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-10 max-h-[600px] overflow-y-auto">
+                        {activeTab === 'staff' && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-3xl font-black text-slate-900">Staff Registry</h2>
+                                    <button onClick={() => setShowUserModal(true)} className="px-8 py-4 bg-emerald-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl shadow-emerald-600/30 transition-all">+ Register Staff</button>
+                                </div>
+                                <div className="border-2 border-slate-200 rounded-3xl overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-900 text-white text-xs uppercase font-black">
+                                            <tr><th className="px-8 py-5">Staff Member</th><th className="px-8 py-5">Email</th><th className="px-8 py-5">Role</th><th className="px-8 py-5 text-right">Actions</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {users.map(u => (
+                                                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-8 py-6 font-bold">{u.name}</td>
+                                                    <td className="px-8 py-6 text-slate-600">{u.email}</td>
+                                                    <td className="px-8 py-6 uppercase text-xs font-black">{u.role}</td>
+                                                    <td className="px-8 py-6 text-right"><button onClick={() => handleDeleteUser(u.id)} disabled={u.id === 'admin_default'} className="text-rose-600 font-bold text-sm">Delete</button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'students' && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-3xl font-black text-slate-900">Student Registry</h2>
+                                    <button onClick={() => setShowStudentModal(true)} className="px-8 py-4 bg-emerald-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all">+ Enroll Student</button>
+                                </div>
+                                <div className="border-2 border-slate-200 rounded-3xl overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-900 text-white text-xs uppercase font-black">
+                                            <tr><th className="px-8 py-5">Student Name</th><th className="px-8 py-5">Adm No.</th><th className="px-8 py-5">Grade</th><th className="px-8 py-5 text-right">Actions</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            {students.map(s => (
+                                                <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-8 py-6 font-bold">{s.name}</td>
+                                                    <td className="px-8 py-6 font-mono">{s.admissionNumber}</td>
+                                                    <td className="px-8 py-6 font-bold text-indigo-600">{s.grade}</td>
+                                                    <td className="px-8 py-6 text-right"><button onClick={() => handleDeleteStudent(s.id)} className="text-rose-600 font-bold text-sm">Remove</button></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'system' && (
+                            <div className="space-y-8 animate-fadeIn">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-3xl font-black text-slate-900">System Configuration</h2>
+                                    <button onClick={handleSaveConfig} disabled={loading} className="px-8 py-4 bg-indigo-600 text-white font-black uppercase text-xs rounded-2xl shadow-xl transition-all">Save All Changes</button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="bg-slate-50 border-2 border-slate-200 rounded-[32px] p-8 space-y-5">
+                                        <h3 className="text-lg font-black text-slate-800">🏫 Institution Identity</h3>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black uppercase text-slate-500">Official School Name</label>
+                                            <input type="text" className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none font-bold" value={config.schoolName} onChange={e => setConfig({ ...config, schoolName: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 border-2 border-slate-200 rounded-[32px] p-8 space-y-5">
+                                        <h3 className="text-lg font-black text-slate-800">📅 Academic Calendar</h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-black uppercase text-slate-500">Current Term</label>
+                                                <select className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold" value={config.currentTerm} onChange={e => setConfig({ ...config, currentTerm: e.target.value })}>
+                                                    <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-black uppercase text-slate-500">Year</label>
+                                                <input type="text" className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold" value={config.academicYear} onChange={e => setConfig({ ...config, academicYear: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {activeTab === 'staff' ? (
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                        <div>
-                            <h3 className="font-bold text-slate-800">Departmental Staff Registry</h3>
-                            <p className="text-xs text-slate-500 mt-1">Total: {users.length} registered staff</p>
-                        </div>
-                        <button
-                            onClick={() => setShowUserModal(true)}
-                            disabled={loading}
-                            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold py-2 px-6 rounded-xl text-xs transition-all shadow-md active:scale-95"
-                        >
-                            + Register Staff
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm border-collapse">
-                            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-black tracking-widest">
-                                <tr>
-                                    <th className="px-8 py-5">Staff Identity</th>
-                                    <th className="px-8 py-5">System Role</th>
-                                    <th className="px-8 py-5">TSC Number</th>
-                                    <th className="px-8 py-5 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {users.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-8 py-12 text-center text-slate-400">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <svg className="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                                </svg>
-                                                <p className="font-bold">No staff members registered yet</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    users.map(u => (
-                                        <tr key={u.id} className="hover:bg-slate-50/80 transition-all">
-                                            <td className="px-8 py-5">
-                                                <span className="font-bold text-slate-800 block">{u.name}</span>
-                                                <span className="text-xs text-slate-400 font-medium">{u.email}</span>
-                                            </td>
-                                            <td className="px-8 py-5">
-                                                <span className={`px-2 py-1 rounded-lg font-black text-[10px] uppercase tracking-tighter ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{u.role}</span>
-                                            </td>
-                                            <td className="px-8 py-5 text-slate-500 font-mono text-xs">{u.tscNumber || '---'}</td>
-                                            <td className="px-8 py-5 text-right">
-                                                <button
-                                                    onClick={() => handleDeleteUser(u.id)}
-                                                    disabled={loading}
-                                                    className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                                                    title="Delete staff member"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            ) : (
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/30">
-                        <div>
-                            <h3 className="font-bold text-slate-800 uppercase tracking-tighter">CBC Learner Registry</h3>
-                            <p className="text-xs text-slate-500 mt-1">Total: {students.length} enrolled students</p>
-                        </div>
-                        <button
-                            onClick={() => setShowStudentModal(true)}
-                            disabled={loading}
-                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-bold py-2 px-6 rounded-xl text-xs transition-all shadow-md active:scale-95"
-                        >
-                            + Enroll New Student
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm border-collapse">
-                            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-black tracking-widest">
-                                <tr>
-                                    <th className="px-8 py-5">Full Name & ADM</th>
-                                    <th className="px-8 py-5">Grade Level</th>
-                                    <th className="px-8 py-5">Allocated Lessons</th>
-                                    <th className="px-8 py-5 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {students.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={4} className="px-8 py-12 text-center text-slate-400">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <svg className="w-12 h-12 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                                </svg>
-                                                <p className="font-bold">No students enrolled yet</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    students.map(s => (
-                                        <tr key={s.id} className="hover:bg-slate-50/80 transition-all">
-                                            <td className="px-8 py-5">
-                                                <span className="font-bold text-slate-800 block">{s.name}</span>
-                                                <span className="text-xs text-indigo-500 font-black">{s.admissionNumber}</span>
-                                            </td>
-                                            <td className="px-8 py-5 font-bold text-slate-600 uppercase text-xs">{s.grade}</td>
-                                            <td className="px-8 py-5">
-                                                <div className="flex flex-wrap gap-1 max-w-[250px]">
-                                                    {s.subjects.map((sub, i) => (
-                                                        <span key={i} className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter border border-slate-200">
-                                                            {sub}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-5 text-right">
-                                                <button
-                                                    onClick={() => handleDeleteStudent(s.id)}
-                                                    disabled={loading}
-                                                    className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                                                    title="Delete student"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Register Staff Modal */}
+            {/* Modals (User and Student) */}
             {showUserModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-                    <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl">
-                        <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
-                            <h3 className="text-xl font-black uppercase tracking-widest">Register Staff</h3>
-                            <button onClick={() => setShowUserModal(false)} type="button">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl">
+                        <div className="bg-slate-900 p-8 text-white flex justify-between">
+                            <h3 className="text-2xl font-black">Register Staff</h3>
+                            <button onClick={() => setShowUserModal(false)}>✕</button>
                         </div>
-                        <form onSubmit={handleAddUser} className="p-8 space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">System Role</label>
-                                <select
-                                    value={userForm.role}
-                                    onChange={e => setUserForm({ ...userForm, role: e.target.value as UserRole })}
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
-                                >
-                                    <option value="teacher">Teacher</option>
-                                    <option value="supervisor">Supervisor</option>
-                                    <option value="admin">Administrator</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Staff Full Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={userForm.name || ''}
-                                    onChange={e => setUserForm({ ...userForm, name: e.target.value })}
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm"
-                                    placeholder="e.g. Margaret Wanjiru"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Institutional Email</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={userForm.email || ''}
-                                    onChange={e => setUserForm({ ...userForm, email: e.target.value })}
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono"
-                                    placeholder="staff@school.edu.ke"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">TSC Number (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={userForm.tscNumber || ''}
-                                    onChange={e => setUserForm({ ...userForm, tscNumber: e.target.value })}
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono"
-                                    placeholder="TSC/123456"
-                                />
-                            </div>
-                            <button
-                                disabled={loading}
-                                type="submit"
-                                className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Processing Registry...' : 'Register User'}
-                            </button>
+                        <form onSubmit={handleAddUser} className="p-8 space-y-5">
+                            <input type="text" placeholder="Name" className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={userForm.name || ''} onChange={e => setUserForm({ ...userForm, name: e.target.value })} required />
+                            <input type="email" placeholder="Email" className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={userForm.email || ''} onChange={e => setUserForm({ ...userForm, email: e.target.value })} required />
+                            <select className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value as any })}>
+                                <option value="teacher">Teacher</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option>
+                            </select>
+                            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase">Register</button>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Enroll Student Modal */}
             {showStudentModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-                    <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl">
-                        <div className="p-8 bg-indigo-600 text-white flex justify-between items-center">
-                            <h3 className="text-xl font-black uppercase tracking-widest">Enroll New Learner</h3>
-                            <button onClick={() => setShowStudentModal(false)} type="button">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[32px] w-full max-w-2xl overflow-hidden shadow-2xl">
+                        <div className="bg-slate-900 p-8 text-white flex justify-between">
+                            <h3 className="text-2xl font-black">Enroll Student</h3>
+                            <button onClick={() => setShowStudentModal(false)}>✕</button>
                         </div>
-                        <form onSubmit={handleAddStudent} className="p-8 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Student Name</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={studentForm.name || ''}
-                                        onChange={e => setStudentForm({ ...studentForm, name: e.target.value })}
-                                        className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold"
-                                        placeholder="Full Name"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Admission No.</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={studentForm.admissionNumber || ''}
-                                        onChange={e => setStudentForm({ ...studentForm, admissionNumber: e.target.value })}
-                                        className="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono"
-                                        placeholder="ADM-2024-XXX"
-                                    />
-                                </div>
+                        <form onSubmit={handleAddStudent} className="p-8 space-y-6">
+                            <input type="text" placeholder="Student Name" className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={studentForm.name || ''} onChange={e => setStudentForm({ ...studentForm, name: e.target.value })} required />
+                            <input type="text" placeholder="Admission Number" className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={studentForm.admissionNumber || ''} onChange={e => setStudentForm({ ...studentForm, admissionNumber: e.target.value })} required />
+                            <select className="w-full px-5 py-4 bg-slate-50 border-2 rounded-2xl" value={studentForm.grade} onChange={e => setStudentForm({ ...studentForm, grade: e.target.value })}>
+                                <option value="Grade 7">Grade 7</option><option value="Grade 8">Grade 8</option><option value="Grade 9">Grade 9</option><option value="Grade 10">Grade 10</option><option value="Grade 11">Grade 11</option><option value="Grade 12">Grade 12</option>
+                            </select>
+                            <div className="grid grid-cols-3 gap-2 p-4 bg-slate-50 rounded-2xl max-h-40 overflow-y-auto">
+                                {availableSubjects.map(sub => (
+                                    <button key={sub} type="button" onClick={() => toggleSubject(sub)} className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase border-2 ${studentForm.subjects?.includes(sub) ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}>
+                                        {sub}
+                                    </button>
+                                ))}
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Grade Level Placement</label>
-                                <select
-                                    value={studentForm.grade}
-                                    onChange={e => setStudentForm({ ...studentForm, grade: e.target.value })}
-                                    className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
-                                >
-                                    {['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
-                                        <option key={g} value={g}>{g}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Allocate STEM Subjects (CBC)</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {['Integrated Science', 'Mathematics', 'Physics', 'Biology', 'Chemistry', 'Computer Science', 'Agriculture', 'Pre-Technical Studies'].map(s => (
-                                        <button
-                                            key={s}
-                                            type="button"
-                                            onClick={() => toggleSubject(s)}
-                                            className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all border ${studentForm.subjects?.includes(s) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
-                                        >
-                                            {s}
-                                        </button>
-                                    ))}
-                                </div>
-                                {studentForm.subjects && studentForm.subjects.length > 0 && (
-                                    <p className="text-xs text-emerald-600 mt-2 font-bold">
-                                        {studentForm.subjects.length} subject(s) selected
-                                    </p>
-                                )}
-                            </div>
-                            <button
-                                disabled={loading}
-                                type="submit"
-                                className="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-xs mt-4 shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Recording Enrollment...' : 'Enroll Learner'}
-                            </button>
+                            <button type="submit" className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase">Enroll</button>
                         </form>
                     </div>
                 </div>
@@ -547,5 +398,3 @@ const AdminPanel: React.FC = () => {
 };
 
 export default AdminPanel;
-
-

@@ -1,1 +1,11 @@
-~º&²©Z•È^›(¦¦Šír·šµïÞž§yúèšÊ¥jW!zl{uç%j¶­Š÷¢šš+µ×œ•ªÚ¶+Þý¶¬yúèšÊ¥jW!zl¢¹¢šš+¶Ç¬²*'™©¬
+import os
+
+# Configuration for Jaseci persistence
+# In a real scenario, this ensures your data survives server restarts
+DB_CONFIG = {
+    "db_type": "sqlite",
+    "db_name": "elimusmart_graph.db"
+}
+
+def get_db_url():
+    return f"sqlite:///{os.path.join(os.getcwd(), DB_CONFIG['db_name'])}"

@@ -66,7 +66,7 @@ export type ViewState =
   | 'timetable-manager'
   | 'appraisal'
   | 'admin-panel'
-  | 'student-tracker'; // Added for Student Progress Feature
+  | 'student-tracker';
 
 export enum DrawingTool {
   PEN = 'PEN',

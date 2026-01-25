@@ -39,7 +39,7 @@ interface TimetableManagerProps {
 
 const TimetableManager: React.FC<TimetableManagerProps> = ({
     user,
-    apiBaseUrl = 'http://localhost:8000/api'
+    apiBaseUrl = 'http://localhost:8000' // Removed /api to match FastAPI default root
 }) => {
     const [selectedClass, setSelectedClass] = useState<string>('All');
     const [selectedStream, setSelectedStream] = useState<string>('All');
@@ -94,16 +94,22 @@ const TimetableManager: React.FC<TimetableManagerProps> = ({
         setError(null);
 
         try {
-            const response = await fetch(`${apiBaseUrl}/timetable/entries`);
+            //  POST for walker-based data retrieval
+            const response = await fetch(`${apiBaseUrl}/walker/get_timetable`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id })
+            });
             const data = await response.json();
 
-            if (data.success) {
-                setTimetableEntries(data.entries || []);
+            // Real backend returns the list directly or in a result field
+            if (response.ok) {
+                setTimetableEntries(Array.isArray(data) ? data : data.entries || []);
             } else {
-                throw new Error(data.error || 'Failed to load timetable');
+                throw new Error(data.detail || 'Failed to load timetable');
             }
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to load timetable';
+            const errorMessage = err instanceof Error ? err.message : 'Failed to connect to backend';
             setError(errorMessage);
             console.error('Timetable load error:', err);
         } finally {
@@ -131,21 +137,20 @@ const TimetableManager: React.FC<TimetableManagerProps> = ({
         };
 
         try {
+            // Targeting walker save endpoint
             const url = editingEntry
-                ? `${apiBaseUrl}/timetable/entries/${editingEntry.id}`
-                : `${apiBaseUrl}/timetable/entries`;
-
-            const method = editingEntry ? 'PUT' : 'POST';
+                ? `${apiBaseUrl}/walker/update_timetable_entry`
+                : `${apiBaseUrl}/walker/save_timetable_entry`;
 
             const response = await fetch(url, {
-                method,
+                method: 'POST', // Backend walkers usually receive POST
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entryData)
+                body: JSON.stringify(editingEntry ? { ...entryData, id: editingEntry.id } : entryData)
             });
 
             const result = await response.json();
 
-            if (result.success) {
+            if (response.ok) {
                 await loadTimetable();
                 setShowAddModal(false);
                 setEditingEntry(null);
@@ -162,7 +167,7 @@ const TimetableManager: React.FC<TimetableManagerProps> = ({
                     objectives: ''
                 });
             } else {
-                throw new Error(result.error || 'Failed to save entry');
+                throw new Error(result.detail || 'Failed to save entry');
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
@@ -178,15 +183,18 @@ const TimetableManager: React.FC<TimetableManagerProps> = ({
 
         setLoading(true);
         try {
-            const response = await fetch(`${apiBaseUrl}/timetable/entries/${id}`, {
-                method: 'DELETE'
+            // Walker-based delete
+            const response = await fetch(`${apiBaseUrl}/walker/delete_timetable_entry`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entryId: id })
             });
 
             const result = await response.json();
-            if (result.success) {
+            if (response.ok) {
                 await loadTimetable();
             } else {
-                throw new Error(result.error || 'Failed to delete entry');
+                throw new Error(result.detail || 'Failed to delete entry');
             }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to delete entry';
@@ -305,8 +313,8 @@ const TimetableManager: React.FC<TimetableManagerProps> = ({
                                                 <td key={`${day}-${period.id}`} className="p-2 border border-slate-200">
                                                     {entry ? (
                                                         <div className={`p-3 rounded-xl border-l-4 transition-all hover:shadow-lg ${entry.pathway === 'STEM' ? 'bg-indigo-50 border-indigo-500' :
-                                                                entry.pathway === 'Arts' ? 'bg-purple-50 border-purple-500' :
-                                                                    entry.pathway === 'Sports' ? 'bg-emerald-50 border-emerald-500' : 'bg-amber-50 border-amber-500'
+                                                            entry.pathway === 'Arts' ? 'bg-purple-50 border-purple-500' :
+                                                                entry.pathway === 'Sports' ? 'bg-emerald-50 border-emerald-500' : 'bg-amber-50 border-amber-500'
                                                             }`}>
                                                             <p className="font-black text-sm text-slate-800 mb-1">{entry.subject}</p>
                                                             <p className="text-xs text-slate-600 mb-1">{entry.class} {entry.stream}</p>

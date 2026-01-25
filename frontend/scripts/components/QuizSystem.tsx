@@ -62,7 +62,7 @@ const QuizSystem: React.FC<QuizSystemProps> = ({ lessons = [] }) => {
       });
       setJacAvailable(response.ok);
     } catch (error) {
-      console.warn('JAC server not available, using direct Gemini API');
+      console.warn('ElimuSmartPlan server not available, to load Jac Intelligence');
       setJacAvailable(false);
     }
   };
@@ -122,7 +122,7 @@ const QuizSystem: React.FC<QuizSystemProps> = ({ lessons = [] }) => {
     });
 
     if (!response.ok) {
-      throw new Error(`JAC API Error: ${response.status}`);
+      throw new Error(`Smacqx Loading Error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -134,7 +134,7 @@ const QuizSystem: React.FC<QuizSystemProps> = ({ lessons = [] }) => {
       throw new Error('Gemini API key not configured. Please set REACT_APP_GEMINI_API_KEY or API_KEY in your .env file.');
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,7 +192,7 @@ Return ONLY the JSON object, no other text.`
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      throw new Error(`Smacqx System Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
@@ -231,7 +231,7 @@ Return ONLY the JSON object, no other text.`
     });
 
     if (!response.ok) {
-      throw new Error(`JAC Evaluation Error: ${response.status}`);
+      throw new Error(`Smacqx Evaluation Error: ${response.status}`);
     }
 
     return await response.json();
@@ -239,10 +239,10 @@ Return ONLY the JSON object, no other text.`
 
   const evaluateAnswerViaGemini = async (question: Question, userAnswer: string | number) => {
     if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key not configured');
+      throw new Error('Smacqx API key not configured');
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -457,7 +457,7 @@ Make feedback educational, supportive, and culturally relevant to Kenyan student
             throw new Error('Failed to save to JAC');
           }
         } catch (jacError) {
-          console.warn("JAC save unavailable:", jacError);
+          console.warn("Smacqx save unavailable:", jacError);
           console.log("Quiz Results:", result);
           alert(`Quiz completed!\n\nScore: ${result.score}/${result.total} (${result.percentage}%)\n\nResults logged locally (JAC unavailable).`);
         }
@@ -486,7 +486,7 @@ Make feedback educational, supportive, and culturally relevant to Kenyan student
             <div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">Quiz Master</h2>
               <p className="text-slate-400 font-medium text-sm uppercase tracking-widest">
-                AI Assessment Node • Powered by {jacAvailable ? 'Jac + Gemini 2.0' : 'Gemini 2.0'}
+                AI Assessment Node • Powered by {jacAvailable ? 'Jac + Gemini 2.5 Flash' : 'Gemini 2.5 Flash'}
               </p>
             </div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${jacAvailable ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
